@@ -41,8 +41,24 @@ def write_footer():
 
 
 def write_commodities():
+    result = ''
+    for currency in sorted(currencies.keys()):
+        commodity = ET.Element('gnc:commodity', {'version': "2.0.0"})
+        cmd_space = ET.SubElement(commodity, 'cmdty:space')
+        cmd_space.text = 'ISO4217'
+        cmd_space = ET.SubElement(commodity, 'cmdty:id')
+        cmd_space.text = currency
+        ET.SubElement(commodity, 'cmdty:get_quotes')
+        cmd_src = ET.SubElement(commodity, 'cmdty:quote_source')
+        cmd_src.text = 'currency'
+        ET.SubElement(commodity, 'cmdty:quote_tz')
+
+        indent(commodity)
+        result += ET.tostring(commodity)
+
     with open("commodities.xml", "r") as comm:
-        return comm.read().replace('CURRENCY_PLACEHOLDER', default_currency)
+        result += comm.read()
+    return result
 
 
 def write_root_account():
