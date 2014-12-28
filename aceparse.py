@@ -82,8 +82,20 @@ for category in xml_categories:
         categories[category_id] = ace_category
 
 
+# incomplete and BGN-specific
+def get_fx_rate(currency, day):
+    if currency == xmloutput.default_currency:
+        return 1.0
+    if currency == 'EUR':
+        return 1.956
+    if currency == 'USD':
+        return 1.5
+    if currency == 'JPY':
+        return 0.015
+
 def export_transaction(f, tran):
     tran_id = tran.find('TransactionID').get('ID')
+    tran_day = tran.get('Date')
 
     # TODO: Support payeeID. Support splits
     if tran.find('CategoryID') is None:
@@ -100,15 +112,10 @@ def export_transaction(f, tran):
         account_src = accounts[tran_accounts[0].get('ID')]
         account_dest = categories[tran.find('CategoryID').get('ID')]
         amount_src = tran.get('Amount')
-        amount_dest = amount_src
-
-        # TODO: FX purchases
-        if account_src.currency != account_dest.currency:
-            print 'Skip: TransactionID=', tran_id, ' is an FX spending'
-            return
+        amount_dest = str(float(amount_src) * get_fx_rate(account_src.currency, tran_day))
 
     f.write(xmloutput.write_transaction(account_src.currency,
-                                        tran.get('Date'),
+                                        tran_day,
                                         tran.get('Comment'),
                                         xmloutput.GnuSplit(account_src.gnu_id, amount_src, account_src.currency),
                                         xmloutput.GnuSplit(account_dest.gnu_id, amount_dest, account_dest.currency)))
