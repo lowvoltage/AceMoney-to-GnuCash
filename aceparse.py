@@ -5,7 +5,6 @@ import uuid
 
 # TODO: Support payeeID. Support splits
 # TODO: Setup valid FX rates for USD & JPY
-# TODO: Transaction ordering: 1) Day 2) ID
 input_filename = "c:\Users\Mitko\Downloads\Accounts.xml"
 output_filename = "result.gnucash"
 currencies = {'155': 'BGN', '43': 'EUR', '63': 'JPY', '140': 'USD'}
@@ -114,6 +113,14 @@ def export_transaction(f, tran):
                                         xmloutput.GnuSplit(account_dest.gnu_id, amount_dest, account_dest.currency)))
 
 
+def get_sorted_transactions():
+    sorted_pairs = []
+    for tran in tree.findall('.//Transaction'):
+        sorted_pairs.append((tran.get('Date'), tran))
+    sorted_pairs.sort()
+    return [item[-1] for item in sorted_pairs]
+
+
 f = open(output_filename, 'w')
 f.write(xmloutput.write_header())
 f.write(xmloutput.write_commodities())
@@ -123,7 +130,7 @@ f.write(xmloutput.write_opening_balances())
 f.write(xmloutput.write_trading_accounts())
 f.write(xmloutput.write_ace_categories(categories.values()))
 f.write(xmloutput.write_ace_accounts(account_groups.values(), accounts.values()))
-for tran in tree.findall('.//Transaction'):
+for tran in get_sorted_transactions():
     export_transaction(f, tran)
 f.write(xmloutput.write_footer())
 f.close()
