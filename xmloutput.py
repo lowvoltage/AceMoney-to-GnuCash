@@ -19,7 +19,6 @@ trading_account_id = next_id()
 trading_currency_account_id = next_id()
 trading_currency_account_ids = {}
 
-# bank_account_id = next_id()
 expenses_account_id = next_id()
 
 placeholder = {'placeholder': 'true'}
@@ -118,7 +117,6 @@ def write_account(name, account_id, account_type, account_code, currency, parent
         act_parent_id.text = parent_id
 
     indent(acc)
-
     return ET.tostring(acc)
 
 
@@ -146,28 +144,25 @@ def build_comment(account):
 
 
 def write_ace_accounts(account_groups, accounts):
-    # create a top-level Bank account
-    # result = write_account('Bank', bank_account_id, 'BANK', None, default_currency, root_account_id, placeholder)
     result = ''
 
-    # create a mid-level account for each AceMoney group
+    # create a top-level account for each AceMoney group
     for group in account_groups:
         slots = placeholder.copy()
         slots['notes'] = 'AceGroupID=' + group.ace_id
         result += write_account(group.name, group.gnu_id, 'BANK', None, default_currency, root_account_id, slots)
 
-    # create a bottom-level account for each AceMoney account
+    # create an account for each AceMoney account
     for account in accounts:
         slots = {'notes': build_comment(account)}
         result += write_account(account.name, account.gnu_id, 'BANK', account.number, account.currency,
                                 account.group.gnu_id, slots)
 
-    # initial balance transaction
+    # setup the initial balance transaction for each AceMoney account
     for account in accounts:
         result += write_opening_balance_transaction(account)
 
     return result
-
 
 
 def write_opening_balance_transaction(account):
@@ -182,18 +177,6 @@ def write_opening_balance_transaction(account):
                              str(-integer_balance) + '/' + currencies[account.currency],
                              account.gnu_id,
                              opening_balances_accounts_ids[account.currency])
-    # with open("transaction.xml", "r") as trans:
-    #     multiplier = float(currencies[account.currency])
-    #     integer_balance = int(float(account.balance) * multiplier)
-    #     return trans.read(). \
-    #         replace('TRANS_ID', next_id()). \
-    #         replace('CURRENCY', account.currency). \
-    #         replace('SPLIT_A_ID', next_id()). \
-    #         replace('SPLIT_B_ID', next_id()). \
-    #         replace('SPLIT_A_VALUE', str(integer_balance) + '/' + currencies[account.currency]). \
-    #         replace('SPLIT_B_VALUE', str(-integer_balance) + '/' + currencies[account.currency]). \
-    #         replace('SPLIT_A_ACCOUNT', account.gnu_id). \
-    #         replace('SPLIT_B_ACCOUNT', opening_balances_accounts_ids[account.currency])
 
 
 def add_split(splits, value, account):
@@ -208,13 +191,6 @@ def add_split(splits, value, account):
         q_elem.text = value
     split_acc = ET.SubElement(split, 'split:account', {'type': "guid"})
     split_acc.text = account
-
-      # <split:id type="guid">SPLIT_A_ID</split:id>
-      # <split:reconciled-state>n</split:reconciled-state>
-      # <split:value>SPLIT_A_VALUE</split:value>
-      # <split:quantity>SPLIT_A_VALUE</split:quantity>
-      # <split:account type="guid">SPLIT_A_ACCOUNT</split:account>
-    # pass
 
 
 def write_transaction(currency, day, value_a, value_b, account_a, account_b):
@@ -239,25 +215,9 @@ def write_transaction(currency, day, value_a, value_b, account_a, account_b):
     tran_splits = ET.SubElement(tran, 'trn:splits')
     add_split(tran_splits, value_a, account_a)
     add_split(tran_splits, value_b, account_b)
+
     indent(tran)
-
     return ET.tostring(tran)
-
-    # if account.balance == '0':
-    #     return ''
-    #
-    # with open("transaction.xml", "r") as trans:
-    #     multiplier = float(currencies[account.currency])
-    #     integer_balance = int(float(account.balance) * multiplier)
-    #     return trans.read(). \
-    #         replace('TRANS_ID', next_id()). \
-    #         replace('CURRENCY', account.currency). \
-    #         replace('SPLIT_A_ID', next_id()). \
-    #         replace('SPLIT_B_ID', next_id()). \
-    #         replace('SPLIT_A_VALUE', str(integer_balance) + '/' + currencies[account.currency]). \
-    #         replace('SPLIT_B_VALUE', str(-integer_balance) + '/' + currencies[account.currency]). \
-    #         replace('SPLIT_A_ACCOUNT', account.gnu_id). \
-    #         replace('SPLIT_B_ACCOUNT', opening_balances_accounts_ids[account.currency])
 
 
 def write_ace_categories(categories):

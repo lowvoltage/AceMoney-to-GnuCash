@@ -65,7 +65,6 @@ for category in xml_categories:
         ace_category = AceCategory(category_id, None, category_name)
         categories[category_id] = ace_category
         categories_by_name[category_name] = ace_category
-        # print 'Category ', category_name, ' is top-level'
 
 for category in xml_categories:
     category_id = category.find('CategoryID').get('ID')
@@ -74,16 +73,11 @@ for category in xml_categories:
     split = category_name.split(':')
     if len(split) == 2:
         parent = categories_by_name[split[0]]
-        # print 'Category ', category_name, ' is under ', parent.name
         category_name = split[1]
 
         ace_category = AceCategory(category_id, parent, category_name)
         categories[category_id] = ace_category
 
-
-# print len(tree.findall('.//Account')), 'accounts'
-# print len(tree.findall('.//Transaction')), 'transactions'
-# print len(tree.findall('.//Category')), 'categories'
 
 f = open(output_filename, 'w')
 f.write(xmloutput.write_header())
@@ -91,7 +85,6 @@ f.write(xmloutput.write_commodities())
 f.write(xmloutput.write_root_account())
 f.write(xmloutput.write_opening_balances())
 f.write(xmloutput.write_trading_accounts())
-# TODO: Categories as accounts (Expenses)
 f.write(xmloutput.write_ace_categories(categories.values()))
 f.write(xmloutput.write_ace_accounts(account_groups.values(), accounts.values()))
 f.write(xmloutput.write_footer())
