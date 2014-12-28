@@ -1,9 +1,11 @@
 import xml.etree.ElementTree as ET
 import uuid
+from fractions import Fraction
 
 # define default currency and all involved currencies, with their sub-units
 default_currency = 'BGN'
 currencies = {'BGN': '100', 'USD': '100', 'EUR': '100', 'JPY': '1'}
+opening_balance_day = '2000-01-01'
 
 # auto-generated IDs
 def next_id():
@@ -30,6 +32,26 @@ class GnuSplit:
         self.currency = currency
 
 
+# 1 of 'currency' = 'rate' of 'default_currency'
+class GnuFxRate:
+    def __init__(self, currency, rate, day):
+        self.currency = currency
+        self.rate = rate
+        self.day = day
+
+
+# incomplete and BGN-specific
+def get_fx_rate(currency, day):
+    if currency == default_currency:
+        return 1.0
+    if currency == 'EUR':
+        return 1.95583
+    if currency == 'USD':
+        return 1.5
+    if currency == 'JPY':
+        return 0.015
+
+
 def write_header():
     with open("header.xml", "r") as header:
         return header.read()
@@ -40,14 +62,18 @@ def write_footer():
         return footer.read()
 
 
+def write_currency_commodity(element, currency):
+    cmd_space = ET.SubElement(element, 'cmdty:space')
+    cmd_space.text = 'ISO4217'
+    cmd_space = ET.SubElement(element, 'cmdty:id')
+    cmd_space.text = currency
+
+
 def write_commodities():
     result = ''
     for currency in sorted(currencies.keys()):
         commodity = ET.Element('gnc:commodity', {'version': "2.0.0"})
-        cmd_space = ET.SubElement(commodity, 'cmdty:space')
-        cmd_space.text = 'ISO4217'
-        cmd_space = ET.SubElement(commodity, 'cmdty:id')
-        cmd_space.text = currency
+        write_currency_commodity(commodity, currency)
         ET.SubElement(commodity, 'cmdty:get_quotes')
         cmd_src = ET.SubElement(commodity, 'cmdty:quote_source')
         cmd_src.text = 'currency'
@@ -102,10 +128,13 @@ def write_trading_accounts():
 
 def add_currency_child(parent_element, currency, child_tag_name):
     act_commodity = ET.SubElement(parent_element, child_tag_name)
-    cmdty_space = ET.SubElement(act_commodity, 'cmdty:space')
-    cmdty_space.text = 'ISO4217'
-    cmdty_id = ET.SubElement(act_commodity, 'cmdty:id')
-    cmdty_id.text = currency
+    write_currency_commodity(act_commodity, currency)
+
+
+def add_timestamp(parent_element, day, child_tag_name):
+    date_outer = ET.SubElement(parent_element, child_tag_name)
+    date_inner = ET.SubElement(date_outer, 'ts:date')
+    date_inner.text = day + ' 00:00:00 +0200'
 
 
 def toxmlstring(element):
@@ -195,7 +224,7 @@ def write_opening_balance_transaction(account):
         return ''
 
     return write_transaction(account.currency,
-                             '2000-01-01',
+                             opening_balance_day,
                              None,
                              GnuSplit(account.gnu_id, account.balance, account.currency),
                              GnuSplit(opening_balances_accounts_ids[account.currency], account.balance, account.currency))
@@ -221,10 +250,8 @@ def write_transaction(currency, day, description, split_src, split_dest):
     tran_id = ET.SubElement(tran, 'trn:id', {'type': "guid"})
     tran_id.text = next_id()
     add_currency_child(tran, currency, 'trn:currency')
-    for d in ('trn:date-posted', 'trn:date-entered'):
-        date_outer = ET.SubElement(tran, d)
-        date_inner = ET.SubElement(date_outer, 'ts:date')
-        date_inner.text = day + ' 00:00:00 +0200'
+    add_timestamp(tran, day, 'trn:date-posted')
+    add_timestamp(tran, day, 'trn:date-entered')
 
     tran_desc = ET.SubElement(tran, 'trn:description')
     if description is not None:
@@ -281,3 +308,27 @@ def write_ace_categories(categories):
                                     category.parent.gnu_id)
 
     return result
+
+
+def write_fx_rates():
+    fx_rates = []
+    for currency in sorted(currencies.keys()):
+        if currency != default_currency:
+            fx_rates.append(GnuFxRate(currency, get_fx_rate(currency, opening_balance_day), opening_balance_day))
+
+    pricedb = ET.Element('gnc:pricedb', {'version': "1"})
+    for fx_rate in fx_rates:
+        price = ET.SubElement(pricedb, 'price')
+        price_id = ET.SubElement(price, 'price:id', {'type': "guid"})
+        price_id.text = next_id()
+        add_currency_child(price, fx_rate.currency, 'price:commodity')
+        add_currency_child(price, default_currency, 'price:currency')
+        add_timestamp(price, fx_rate.day, 'price:time')
+        price_src = ET.SubElement(price, 'price:source')
+        price_src.text = 'user:price-editor'
+        price_type = ET.SubElement(price, 'price:type')
+        price_type.text = 'unknown'
+        price_value = ET.SubElement(price, 'price:value')
+        price_value.text = str(Fraction(fx_rate.rate).limit_denominator())
+
+    return toxmlstring(pricedb)

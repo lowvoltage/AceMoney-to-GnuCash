@@ -4,7 +4,8 @@ import gzip
 import uuid
 
 # TODO: Support payeeID. Support splits
-# TODO: Setup FX rates
+# TODO: Setup valid FX rates for USD & JPY
+# TODO: Transaction ordering: 1) Day 2) ID
 input_filename = "c:\Users\Mitko\Downloads\Accounts.xml"
 output_filename = "result.gnucash"
 currencies = {'155': 'BGN', '43': 'EUR', '63': 'JPY', '140': 'USD'}
@@ -86,18 +87,6 @@ for category in xml_categories:
 default_category = AceCategory(-1, None, 'Unassigned')
 categories[-1] = default_category
 
-# incomplete and BGN-specific
-def get_fx_rate(currency, day):
-    if currency == xmloutput.default_currency:
-        return 1.0
-    if currency == 'EUR':
-        return 1.956
-    if currency == 'USD':
-        return 1.5
-    if currency == 'JPY':
-        return 0.015
-
-
 def export_transaction(f, tran):
     tran_day = tran.get('Date')
 
@@ -116,7 +105,7 @@ def export_transaction(f, tran):
         account_src = accounts[tran_accounts[0].get('ID')]
         account_dest = categories[tran_cat_id]
         amount_src = tran.get('Amount')
-        amount_dest = str(float(amount_src) * get_fx_rate(account_src.currency, tran_day))
+        amount_dest = str(float(amount_src) * xmloutput.get_fx_rate(account_src.currency, tran_day))
 
     f.write(xmloutput.write_transaction(account_src.currency,
                                         tran_day,
@@ -128,6 +117,7 @@ def export_transaction(f, tran):
 f = open(output_filename, 'w')
 f.write(xmloutput.write_header())
 f.write(xmloutput.write_commodities())
+f.write(xmloutput.write_fx_rates())
 f.write(xmloutput.write_root_account())
 f.write(xmloutput.write_opening_balances())
 f.write(xmloutput.write_trading_accounts())
