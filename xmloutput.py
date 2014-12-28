@@ -23,6 +23,12 @@ expenses_account_id = next_id()
 
 placeholder = {'placeholder': 'true'}
 
+class GnuSplit:
+    def __init__(self, account_id, amount, currency):
+        self.account_id = account_id
+        self.amount = amount
+        self.currency = currency
+
 
 def write_header():
     with open("header.xml", "r") as header:
@@ -102,7 +108,7 @@ def write_account(name, account_id, account_type, account_code, currency, parent
     act_scu = ET.SubElement(acc, 'act:commodity-scu')
     act_scu.text = currencies[currency]
     # if description is not None:
-    #     act_desc = ET.SubElement(acc, 'act:description')
+    # act_desc = ET.SubElement(acc, 'act:description')
     #     act_desc.text = description
     if slots is not None:
         act_slots = ET.SubElement(acc, 'act:slots')
@@ -170,40 +176,28 @@ def write_opening_balance_transaction(account):
         return ''
 
     return write_transaction(account.currency,
-                             account.balance,
                              '2000-01-01',
                              None,
-                             account.gnu_id,
-                             opening_balances_accounts_ids[account.currency])
+                             GnuSplit(account.gnu_id, account.balance, account.currency),
+                             GnuSplit(opening_balances_accounts_ids[account.currency], account.balance, account.currency))
 
 
-def add_split(splits, value, account):
+def add_split(splits, value, quantity, account):
     split = ET.SubElement(splits, 'trn:split')
 
     split_id = ET.SubElement(split, 'split:id', {'type': "guid"})
     split_id.text = next_id()
     split_rec = ET.SubElement(split, 'split:reconciled-state')
     split_rec.text = 'n'
-    for q in ('split:value', 'split:quantity'):
-        q_elem = ET.SubElement(split, q)
-        q_elem.text = value
+    split_value = ET.SubElement(split, 'split:value')
+    split_value.text = value
+    split_quantity = ET.SubElement(split, 'split:quantity')
+    split_quantity.text = quantity
     split_acc = ET.SubElement(split, 'split:account', {'type': "guid"})
     split_acc.text = account
 
 
-def write_transaction(currency, amount, day, description, account_a, account_b):
-    multiplier = float(currencies[currency])
-    integer_balance = int(float(amount) * multiplier)
-    return write_transaction_ab(currency,
-                                day,
-                                description,
-                                str(integer_balance) + '/' + currencies[currency],
-                                str(-integer_balance) + '/' + currencies[currency],
-                                account_a,
-                                account_b)
-
-
-def write_transaction_ab(currency, day, description, value_a, value_b, account_a, account_b):
+def write_transaction(currency, day, description, split_src, split_dest):
     tran = ET.Element('gnc:transaction', {'version': "2.0.0"})
     tran_id = ET.SubElement(tran, 'trn:id', {'type': "guid"})
     tran_id.text = next_id()
@@ -224,9 +218,31 @@ def write_transaction_ab(currency, day, description, value_a, value_b, account_a
     gdate = ET.SubElement(tran_slot_value, 'gdate')
     gdate.text = day
 
+    multiplier_src = currencies[split_src.currency]
+    amount_src = int(float(split_src.amount) * float(multiplier_src))
+
+    multiplier_dest = currencies[split_dest.currency]
+    amount_dest = int(float(split_dest.amount) * float(multiplier_dest))
+
     tran_splits = ET.SubElement(tran, 'trn:splits')
-    add_split(tran_splits, value_a, account_a)
-    add_split(tran_splits, value_b, account_b)
+
+    if split_src.currency == split_dest.currency:
+        value_src = str(amount_src) + '/' + multiplier_src
+        value_dest = str(-amount_dest) + '/' + multiplier_dest
+        add_split(tran_splits, value_src, value_src, split_src.account_id)
+        add_split(tran_splits, value_dest, value_dest, split_dest.account_id)
+
+    else:
+        value_src_pos = str(amount_src) + '/' + multiplier_src
+        value_src_neg = str(-amount_src) + '/' + multiplier_src
+        value_dest_pos = str(amount_dest) + '/' + multiplier_dest
+        value_dest_neg = str(-amount_dest) + '/' + multiplier_dest
+        add_split(tran_splits, value_src_pos, value_src_pos, split_src.account_id)
+        add_split(tran_splits, value_src_neg, value_dest_neg, split_dest.account_id)
+
+        # generate trading account entries
+        add_split(tran_splits, value_src_neg, value_src_neg, trading_currency_account_ids[split_src.currency])
+        add_split(tran_splits, value_src_pos, value_dest_pos, trading_currency_account_ids[split_dest.currency])
 
     indent(tran)
     return ET.tostring(tran)

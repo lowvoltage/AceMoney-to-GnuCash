@@ -94,21 +94,24 @@ def export_transaction(f, tran):
     if len(tran_accounts) == 2:
         account_src = accounts[tran_accounts[1].get('ID')]
         account_dest = accounts[tran_accounts[0].get('ID')]
+        amount_src = tran.get('TransferAmount')
+        amount_dest = tran.get('Amount')
     else:
         account_src = accounts[tran_accounts[0].get('ID')]
         account_dest = categories[tran.find('CategoryID').get('ID')]
+        amount_src = tran.get('Amount')
+        amount_dest = amount_src
 
-    # TODO: FX transfers
-    if account_src.currency != account_dest.currency:
-        print 'Skip: TransactionID=', tran_id, ' is an FX'
-        return
+        # TODO: FX purchases
+        if account_src.currency != account_dest.currency:
+            print 'Skip: TransactionID=', tran_id, ' is an FX spending'
+            return
 
     f.write(xmloutput.write_transaction(account_src.currency,
-                                        tran.get('Amount'),
                                         tran.get('Date'),
                                         tran.get('Comment'),
-                                        account_src.gnu_id,
-                                        account_dest.gnu_id))
+                                        xmloutput.GnuSplit(account_src.gnu_id, amount_src, account_src.currency),
+                                        xmloutput.GnuSplit(account_dest.gnu_id, amount_dest, account_dest.currency)))
 
 
 f = open(output_filename, 'w')
