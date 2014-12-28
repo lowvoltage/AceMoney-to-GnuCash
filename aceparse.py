@@ -3,6 +3,8 @@ import xmloutput
 import gzip
 import uuid
 
+# TODO: Simplify Unicode / UTF-8 names
+# TODO: Support payeeID. Support splits
 input_filename = "c:\Users\Mitko\Downloads\Accounts.xml"
 output_filename = "result.gnucash"
 currencies = {'155': 'BGN', '43': 'EUR', '63': 'JPY', '140': 'USD'}
@@ -95,10 +97,10 @@ def get_fx_rate(currency, day):
     if currency == 'JPY':
         return 0.015
 
+
 def export_transaction(f, tran):
     tran_day = tran.get('Date')
 
-    # TODO: Support payeeID. Support splits
     if tran.find('CategoryID') is None:
         tran_cat_id = -1
     else:
