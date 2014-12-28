@@ -14,6 +14,7 @@ class AceAccountGroup:
         self.name = name
         self.gnu_id = uuid.uuid4().get_hex()
 
+
 class AceAccount:
     def __init__(self, ace_id, group, name, currency, balance, number, comment):
         self.ace_id = ace_id
@@ -25,11 +26,13 @@ class AceAccount:
         self.comment = comment
         self.gnu_id = uuid.uuid4().get_hex()
 
+
 class AceCategory:
     def __init__(self, ace_id, parent, name):
         self.ace_id = ace_id
         self.parent = parent
         self.name = name
+        self.currency = xmloutput.default_currency
         self.gnu_id = uuid.uuid4().get_hex()
 
 
@@ -79,6 +82,35 @@ for category in xml_categories:
         categories[category_id] = ace_category
 
 
+def export_transaction(f, tran):
+    tran_id = tran.find('TransactionID').get('ID')
+
+    # TODO: Support payeeID. Support splits
+    if tran.find('CategoryID') is None:
+        print 'Skip: TransactionID=', tran_id, ' is a split'
+        return
+
+    tran_accounts = tran.findall('AccountID')
+    if len(tran_accounts) == 2:
+        account_src = accounts[tran_accounts[1].get('ID')]
+        account_dest = accounts[tran_accounts[0].get('ID')]
+    else:
+        account_src = accounts[tran_accounts[0].get('ID')]
+        account_dest = categories[tran.find('CategoryID').get('ID')]
+
+    # TODO: FX transfers
+    if account_src.currency != account_dest.currency:
+        print 'Skip: TransactionID=', tran_id, ' is an FX'
+        return
+
+    f.write(xmloutput.write_transaction(account_src.currency,
+                                        tran.get('Amount'),
+                                        tran.get('Date'),
+                                        tran.get('Comment'),
+                                        account_src.gnu_id,
+                                        account_dest.gnu_id))
+
+
 f = open(output_filename, 'w')
 f.write(xmloutput.write_header())
 f.write(xmloutput.write_commodities())
@@ -87,6 +119,8 @@ f.write(xmloutput.write_opening_balances())
 f.write(xmloutput.write_trading_accounts())
 f.write(xmloutput.write_ace_categories(categories.values()))
 f.write(xmloutput.write_ace_accounts(account_groups.values(), accounts.values()))
+for tran in tree.findall('.//Transaction'):
+    export_transaction(f, tran)
 f.write(xmloutput.write_footer())
 f.close()
 
