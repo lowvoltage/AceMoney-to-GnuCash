@@ -53,8 +53,7 @@ def write_commodities():
         cmd_src.text = 'currency'
         ET.SubElement(commodity, 'cmdty:quote_tz')
 
-        indent(commodity)
-        result += ET.tostring(commodity)
+        result += toxmlstring(commodity)
 
     with open("commodities.xml", "r") as comm:
         result += comm.read()
@@ -109,6 +108,11 @@ def add_currency_child(parent_element, currency, child_tag_name):
     cmdty_id.text = currency
 
 
+def toxmlstring(element):
+    indent(element)
+    return ET.tostring(element, 'utf-8')
+
+
 def write_account(name, account_id, account_type, account_code, currency, parent_id, slots=None):
     acc = ET.Element('gnc:account', {'version': "2.0.0"})
     act_name = ET.SubElement(acc, 'act:name')
@@ -138,8 +142,7 @@ def write_account(name, account_id, account_type, account_code, currency, parent
         act_parent_id = ET.SubElement(acc, 'act:parent', {'type': "guid"})
         act_parent_id.text = parent_id
 
-    indent(acc)
-    return ET.tostring(acc)
+    return toxmlstring(acc)
 
 
 def indent(elem, level=0):
@@ -260,8 +263,7 @@ def write_transaction(currency, day, description, split_src, split_dest):
         add_split(tran_splits, value_src_neg, value_src_neg, trading_currency_account_ids[split_src.currency])
         add_split(tran_splits, value_src_pos, value_dest_pos, trading_currency_account_ids[split_dest.currency])
 
-    indent(tran)
-    return ET.tostring(tran)
+    return toxmlstring(tran)
 
 
 def write_ace_categories(categories):

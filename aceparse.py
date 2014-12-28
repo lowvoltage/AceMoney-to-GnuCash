@@ -3,8 +3,8 @@ import xmloutput
 import gzip
 import uuid
 
-# TODO: Simplify Unicode / UTF-8 names
 # TODO: Support payeeID. Support splits
+# TODO: Setup FX rates
 input_filename = "c:\Users\Mitko\Downloads\Accounts.xml"
 output_filename = "result.gnucash"
 currencies = {'155': 'BGN', '43': 'EUR', '63': 'JPY', '140': 'USD'}
