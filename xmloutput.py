@@ -219,10 +219,10 @@ def write_transaction(currency, day, description, split_src, split_dest):
     gdate.text = day
 
     multiplier_src = currencies[split_src.currency]
-    amount_src = int(float(split_src.amount) * float(multiplier_src))
+    amount_src = int(round(float(split_src.amount) * float(multiplier_src)))
 
     multiplier_dest = currencies[split_dest.currency]
-    amount_dest = int(float(split_dest.amount) * float(multiplier_dest))
+    amount_dest = int(round(float(split_dest.amount) * float(multiplier_dest)))
 
     tran_splits = ET.SubElement(tran, 'trn:splits')
 
