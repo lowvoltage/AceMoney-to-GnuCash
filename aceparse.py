@@ -81,6 +81,8 @@ for category in xml_categories:
         ace_category = AceCategory(category_id, parent, category_name)
         categories[category_id] = ace_category
 
+default_category = AceCategory(-1, None, 'Unassigned')
+categories[-1] = default_category
 
 # incomplete and BGN-specific
 def get_fx_rate(currency, day):
@@ -94,13 +96,13 @@ def get_fx_rate(currency, day):
         return 0.015
 
 def export_transaction(f, tran):
-    tran_id = tran.find('TransactionID').get('ID')
     tran_day = tran.get('Date')
 
     # TODO: Support payeeID. Support splits
     if tran.find('CategoryID') is None:
-        print 'Skip: TransactionID=', tran_id, ' is a split'
-        return
+        tran_cat_id = -1
+    else:
+        tran_cat_id = tran.find('CategoryID').get('ID')
 
     tran_accounts = tran.findall('AccountID')
     if len(tran_accounts) == 2:
@@ -110,7 +112,7 @@ def export_transaction(f, tran):
         amount_dest = tran.get('Amount')
     else:
         account_src = accounts[tran_accounts[0].get('ID')]
-        account_dest = categories[tran.find('CategoryID').get('ID')]
+        account_dest = categories[tran_cat_id]
         amount_src = tran.get('Amount')
         amount_dest = str(float(amount_src) * get_fx_rate(account_src.currency, tran_day))
 
