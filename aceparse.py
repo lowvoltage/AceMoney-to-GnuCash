@@ -88,6 +88,7 @@ categories[-1] = default_category
 
 def export_transaction(f, tran):
     tran_day = tran.get('Date')
+    tran_id = tran.find('TransactionID').get('ID')
 
     if tran.find('CategoryID') is None:
         tran_cat_id = -1
@@ -106,9 +107,7 @@ def export_transaction(f, tran):
         amount_src = tran.get('Amount')
         amount_dest = str(float(amount_src) * xmloutput.get_fx_rate(account_src.currency, tran_day))
 
-    f.write(xmloutput.write_transaction(account_src.currency,
-                                        tran_day,
-                                        tran.get('Comment'),
+    f.write(xmloutput.write_transaction(account_src.currency, tran_day, tran.get('Comment'), tran_id,
                                         xmloutput.GnuSplit(account_src.gnu_id, amount_src, account_src.currency),
                                         xmloutput.GnuSplit(account_dest.gnu_id, amount_dest, account_dest.currency)))
 

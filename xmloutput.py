@@ -223,11 +223,10 @@ def write_opening_balance_transaction(account):
     if account.balance == '0':
         return ''
 
-    return write_transaction(account.currency,
-                             opening_balance_day,
-                             None,
+    return write_transaction(account.currency, opening_balance_day, None, None,
                              GnuSplit(account.gnu_id, account.balance, account.currency),
-                             GnuSplit(opening_balances_accounts_ids[account.currency], account.balance, account.currency))
+                             GnuSplit(opening_balances_accounts_ids[account.currency], account.balance,
+                                      account.currency))
 
 
 def add_split(splits, value, quantity, account):
@@ -245,7 +244,7 @@ def add_split(splits, value, quantity, account):
     split_acc.text = account
 
 
-def write_transaction(currency, day, description, split_src, split_dest):
+def write_transaction(currency, day, description, num, split_src, split_dest):
     tran = ET.Element('gnc:transaction', {'version': "2.0.0"})
     tran_id = ET.SubElement(tran, 'trn:id', {'type': "guid"})
     tran_id.text = next_id()
@@ -256,6 +255,9 @@ def write_transaction(currency, day, description, split_src, split_dest):
     tran_desc = ET.SubElement(tran, 'trn:description')
     if description is not None:
         tran_desc.text = description
+    tran_num = ET.SubElement(tran, 'trn:num')
+    if num is not None:
+        tran_num.text = num
     tran_slots = ET.SubElement(tran, 'trn:slots')
     tran_slot = ET.SubElement(tran_slots, 'slot')
     tran_slot_key = ET.SubElement(tran_slot, 'slot:key')
