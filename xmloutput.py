@@ -287,21 +287,14 @@ def write_transaction(currency, day, description, num, reconciled, split_src, sp
 
     tran_splits = ET.SubElement(tran, 'trn:splits')
 
-    # TODO: Extract common code out of the 'if'
-    if split_src.currency == split_dest.currency:
-        value_src = str(amount_src) + '/' + multiplier_src
-        value_dest = str(-amount_dest) + '/' + multiplier_dest
-        add_split(tran_splits, value_src, value_src, split_src.account_id, reconciled)
-        add_split(tran_splits, value_dest, value_dest, split_dest.account_id, reconciled)
+    value_src_pos = str(amount_src) + '/' + multiplier_src
+    value_src_neg = str(-amount_src) + '/' + multiplier_src
+    value_dest_pos = str(amount_dest) + '/' + multiplier_dest
+    value_dest_neg = str(-amount_dest) + '/' + multiplier_dest
+    add_split(tran_splits, value_src_pos, value_src_pos, split_src.account_id, reconciled)
+    add_split(tran_splits, value_src_neg, value_dest_neg, split_dest.account_id, reconciled)
 
-    else:
-        value_src_pos = str(amount_src) + '/' + multiplier_src
-        value_src_neg = str(-amount_src) + '/' + multiplier_src
-        value_dest_pos = str(amount_dest) + '/' + multiplier_dest
-        value_dest_neg = str(-amount_dest) + '/' + multiplier_dest
-        add_split(tran_splits, value_src_pos, value_src_pos, split_src.account_id, reconciled)
-        add_split(tran_splits, value_src_neg, value_dest_neg, split_dest.account_id, reconciled)
-
+    if split_src.currency != split_dest.currency:
         # generate trading account entries
         add_split(tran_splits, value_src_neg, value_src_neg, trading_currency_account_ids[split_src.currency],
                   reconciled)

@@ -6,6 +6,8 @@ import argparse
 import sys
 
 # TODO: Setup valid FX rates for USD & JPY
+# TODO: General code style; Docs
+# TODO: Build an actual XML file, not a text file
 ace_currency_codes = {'155': 'BGN', '43': 'EUR', '63': 'JPY', '140': 'USD'}
 processed_count = 0
 
