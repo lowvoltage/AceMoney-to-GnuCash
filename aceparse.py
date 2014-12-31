@@ -4,7 +4,6 @@ import gzip
 import uuid
 import argparse
 
-# TODO: Support payeeID. Support splits
 # TODO: Setup valid FX rates for USD & JPY
 # TODO: Report object counts; Report objects; Transactions' progress report
 ace_currency_codes = {'155': 'BGN', '43': 'EUR', '63': 'JPY', '140': 'USD'}
@@ -43,14 +42,23 @@ account_groups = {}
 accounts = {}
 categories = {}
 categories_by_name = {}
+payees = {}
 
 arg_parser = argparse.ArgumentParser(description="AceMoney to GnuCash converter")
 arg_parser.add_argument("-i", dest="input_filename", required=True, help="input .xml filename, exported from AceMoney",
-                    metavar="FILE")
+                        metavar="FILE")
 arg_parser.add_argument("-o", dest="output_filename", required=True, help="output .gnucash filename", metavar="FILE")
 args = arg_parser.parse_args()
 
 tree = ET.parse(args.input_filename)
+
+payee_elements = tree.findall('.//Payee')
+print 'Found', len(payee_elements), 'payees:'
+for payee in payee_elements:
+    payee_id = payee.find('PayeeID').get('ID')
+    payee_name = payee.get('Name')
+    payees[payee_id] = payee_name
+    print(u"Payee ID={0} Name='{1}'".format(payee_id, payee_name))
 
 for group in tree.findall('.//AccountGroup'):
     group_id = group.find('AccountGroupID').get('ID')
@@ -90,6 +98,14 @@ default_category = AceCategory(-1, None, 'Unassigned')
 categories[-1] = default_category
 
 
+def get_payee_name(tran):
+    payee_elem = tran.find('PayeeID')
+    tran_payee = None
+    if payee_elem is not None:
+        tran_payee = payees[payee_elem.get('ID')]
+    return tran_payee
+
+
 def export_transaction(f, tran):
     tran_day = tran.get('Date')
     tran_id = tran.find('TransactionID').get('ID')
@@ -113,7 +129,10 @@ def export_transaction(f, tran):
 
     # Note: Limitations - 'cleared' state is ignored; The flag for the second transaction leg (if present) is ignored
     reconciled = tran.find('TransactionState').get('State') == '1'
-    f.write(xmloutput.write_transaction(account_src.currency, tran_day, tran.get('Comment'), tran_id, reconciled,
+
+    description = xmloutput.concat(get_payee_name(tran), tran.get('Comment'), ': ')
+
+    f.write(xmloutput.write_transaction(account_src.currency, tran_day, description, tran_id, reconciled,
                                         xmloutput.GnuSplit(account_src.gnu_id, amount_src, account_src.currency),
                                         xmloutput.GnuSplit(account_dest.gnu_id, amount_dest, account_dest.currency)))
 

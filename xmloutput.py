@@ -188,14 +188,19 @@ def indent(elem, level=0):
             elem.tail = i
 
 
-def build_comment(account):
-    comment = ''
-    if account.comment is not None:
-        comment = account.comment + '\n'
-    if debug:
-        return comment + 'AceID=' + account.ace_id + ' Balance=' + account.balance
+def concat(first, second, spacer=''):
+    if first is not None:
+        result = first
+        if second is not None:
+            result += spacer + second
+        return result
     else:
-        return comment
+        return second
+
+
+def build_comment(account):
+    debug_info = 'AceID=' + account.ace_id + ' Balance=' + account.balance if debug else None
+    return concat(account.comment, debug_info, '\n')
 
 
 def write_ace_accounts(account_groups, accounts):
