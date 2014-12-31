@@ -128,7 +128,7 @@ def get_payee_name(tran):
     return tran_payee
 
 
-def export_transaction(f, tran):
+def export_transaction(xml_root, tran):
     global processed_count
     if processed_count % 100 == 0:
         sys.stdout.write('.')
@@ -160,9 +160,9 @@ def export_transaction(f, tran):
 
     description = xmloutput.concat(get_payee_name(tran), tran.get('Comment'), ': ')
 
-    f.write(xmloutput.write_transaction(account_src.currency, tran_day, description, tran_id, reconciled,
-                                        xmloutput.GnuSplit(account_src.gnu_id, amount_src, account_src.currency),
-                                        xmloutput.GnuSplit(account_dest.gnu_id, amount_dest, account_dest.currency)))
+    xmloutput.write_transaction(xml_root, account_src.currency, tran_day, description, tran_id, reconciled,
+                                xmloutput.GnuSplit(account_src.gnu_id, amount_src, account_src.currency),
+                                xmloutput.GnuSplit(account_dest.gnu_id, amount_dest, account_dest.currency))
 
 
 def get_sorted_transactions():
@@ -172,26 +172,52 @@ def get_sorted_transactions():
     sorted_pairs.sort()
     return [item[-1] for item in sorted_pairs]
 
+
 transactions = get_sorted_transactions()
 print 'Found', len(transactions), 'transactions'
 print
 
-f = open(args.output_filename, 'w')
-print 'Open for writing', args.output_filename
+xml_root = ET.Element('gnc-v2')
+gnc_book_element = ET.SubElement(xml_root, 'gnc:book', {'version': "2.0.0"})
+book_id_element = ET.SubElement(gnc_book_element, 'book:id', {'type': "guid"})
+book_id_element.text = xmloutput.next_id()
+book_slots_element = ET.SubElement(gnc_book_element, 'book:slots')
 
-f.write(xmloutput.write_header())
-f.write(xmloutput.write_commodities())
-f.write(xmloutput.write_fx_rates())
-f.write(xmloutput.write_root_account())
-f.write(xmloutput.write_opening_balances())
-f.write(xmloutput.write_trading_accounts())
-f.write(xmloutput.write_ace_categories(categories.values()))
-f.write(xmloutput.write_ace_accounts(account_groups.values(), accounts.values()))
+# xmloutput.indent(gnc_book_element)
+
+# f.write(xmloutput.write_header())
+xmloutput.write_commodities(gnc_book_element)
+xmloutput.write_fx_rates(gnc_book_element)
+xmloutput.write_root_account(gnc_book_element)
+xmloutput.write_opening_balances(gnc_book_element)
+xmloutput.write_trading_accounts(gnc_book_element)
+xmloutput.write_ace_categories(gnc_book_element, categories.values())
+xmloutput.write_ace_accounts(gnc_book_element, account_groups.values(), accounts.values())
 for tran in transactions:
-    export_transaction(f, tran)
-f.write(xmloutput.write_footer())
-f.close()
+    export_transaction(xml_root, tran)
+# f.write(xmloutput.write_footer())
+# f.close()
 print
+print 'Open for writing', args.output_filename
+xmloutput.indent(xml_root)
+ET.ElementTree(xml_root).write(args.output_filename, 'utf-8', True)
+
+# f = open(args.output_filename, 'w')
+# print 'Open for writing', args.output_filename
+#
+# f.write(xmloutput.write_header())
+# f.write(xmloutput.write_commodities())
+# f.write(xmloutput.write_fx_rates())
+# f.write(xmloutput.write_root_account())
+# f.write(xmloutput.write_opening_balances())
+# f.write(xmloutput.write_trading_accounts())
+# f.write(xmloutput.write_ace_categories(categories.values()))
+# f.write(xmloutput.write_ace_accounts(account_groups.values(), accounts.values()))
+# for tran in transactions:
+# export_transaction(f, tran)
+# f.write(xmloutput.write_footer())
+# f.close()
+# print
 
 output_gz_filename = args.output_filename + '.gz'
 f_in = open(args.output_filename, 'rb')
