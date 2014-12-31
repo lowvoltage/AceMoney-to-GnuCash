@@ -4,7 +4,7 @@ import gzip
 import uuid
 import argparse
 
-# TODO: Transaction Reconciled flag. IsClosed account flag
+# TODO: IsClosed account flag
 # TODO: Support payeeID. Support splits
 # TODO: Setup valid FX rates for USD & JPY
 # TODO: Report object counts; Report objects; Transactions' progress report
@@ -115,7 +115,9 @@ def export_transaction(f, tran):
         amount_src = tran.get('Amount')
         amount_dest = str(float(amount_src) * xmloutput.get_fx_rate(account_src.currency, tran_day))
 
-    f.write(xmloutput.write_transaction(account_src.currency, tran_day, tran.get('Comment'), tran_id,
+    # Note: Limitations - 'cleared' state is ignored; The flag for the second transaction leg (if present) is ignored
+    reconciled = tran.find('TransactionState').get('State') == '1'
+    f.write(xmloutput.write_transaction(account_src.currency, tran_day, tran.get('Comment'), tran_id, reconciled,
                                         xmloutput.GnuSplit(account_src.gnu_id, amount_src, account_src.currency),
                                         xmloutput.GnuSplit(account_dest.gnu_id, amount_dest, account_dest.currency)))
 

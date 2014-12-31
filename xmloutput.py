@@ -228,19 +228,19 @@ def write_opening_balance_transaction(account):
     if account.balance == '0':
         return ''
 
-    return write_transaction(account.currency, opening_balance_day, None, None,
+    return write_transaction(account.currency, opening_balance_day, None, None, True,
                              GnuSplit(account.gnu_id, account.balance, account.currency),
                              GnuSplit(opening_balances_accounts_ids[account.currency], account.balance,
                                       account.currency))
 
 
-def add_split(splits, value, quantity, account):
+def add_split(splits, value, quantity, account, reconciled):
     split = ET.SubElement(splits, 'trn:split')
 
     split_id = ET.SubElement(split, 'split:id', {'type': "guid"})
     split_id.text = next_id()
     split_rec = ET.SubElement(split, 'split:reconciled-state')
-    split_rec.text = 'n'
+    split_rec.text = 'y' if reconciled else 'n'
     split_value = ET.SubElement(split, 'split:value')
     split_value.text = value
     split_quantity = ET.SubElement(split, 'split:quantity')
@@ -249,7 +249,7 @@ def add_split(splits, value, quantity, account):
     split_acc.text = account
 
 
-def write_transaction(currency, day, description, num, split_src, split_dest):
+def write_transaction(currency, day, description, num, reconciled, split_src, split_dest):
     tran = ET.Element('gnc:transaction', {'version': "2.0.0"})
     tran_id = ET.SubElement(tran, 'trn:id', {'type': "guid"})
     tran_id.text = next_id()
@@ -279,23 +279,26 @@ def write_transaction(currency, day, description, num, split_src, split_dest):
 
     tran_splits = ET.SubElement(tran, 'trn:splits')
 
+    # TODO: Extract common code out of the 'if'
     if split_src.currency == split_dest.currency:
         value_src = str(amount_src) + '/' + multiplier_src
         value_dest = str(-amount_dest) + '/' + multiplier_dest
-        add_split(tran_splits, value_src, value_src, split_src.account_id)
-        add_split(tran_splits, value_dest, value_dest, split_dest.account_id)
+        add_split(tran_splits, value_src, value_src, split_src.account_id, reconciled)
+        add_split(tran_splits, value_dest, value_dest, split_dest.account_id, reconciled)
 
     else:
         value_src_pos = str(amount_src) + '/' + multiplier_src
         value_src_neg = str(-amount_src) + '/' + multiplier_src
         value_dest_pos = str(amount_dest) + '/' + multiplier_dest
         value_dest_neg = str(-amount_dest) + '/' + multiplier_dest
-        add_split(tran_splits, value_src_pos, value_src_pos, split_src.account_id)
-        add_split(tran_splits, value_src_neg, value_dest_neg, split_dest.account_id)
+        add_split(tran_splits, value_src_pos, value_src_pos, split_src.account_id, reconciled)
+        add_split(tran_splits, value_src_neg, value_dest_neg, split_dest.account_id, reconciled)
 
         # generate trading account entries
-        add_split(tran_splits, value_src_neg, value_src_neg, trading_currency_account_ids[split_src.currency])
-        add_split(tran_splits, value_src_pos, value_dest_pos, trading_currency_account_ids[split_dest.currency])
+        add_split(tran_splits, value_src_neg, value_src_neg, trading_currency_account_ids[split_src.currency],
+                  reconciled)
+        add_split(tran_splits, value_src_pos, value_dest_pos, trading_currency_account_ids[split_dest.currency],
+                  reconciled)
 
     return toxmlstring(tran)
 
