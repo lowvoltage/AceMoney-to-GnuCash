@@ -4,7 +4,6 @@ import gzip
 import uuid
 import argparse
 
-# TODO: IsClosed account flag
 # TODO: Support payeeID. Support splits
 # TODO: Setup valid FX rates for USD & JPY
 # TODO: Report object counts; Report objects; Transactions' progress report
@@ -19,7 +18,7 @@ class AceAccountGroup:
 
 
 class AceAccount:
-    def __init__(self, ace_id, group, name, currency, balance, number, comment):
+    def __init__(self, ace_id, group, name, currency, balance, number, comment, hidden):
         self.ace_id = ace_id
         self.group = group
         self.name = name
@@ -27,6 +26,7 @@ class AceAccount:
         self.balance = balance
         self.number = number
         self.comment = comment
+        self.hidden = hidden
         self.gnu_id = uuid.uuid4().get_hex()
 
 
@@ -61,13 +61,9 @@ for account in tree.findall('.//Account'):
     group = account_groups[account.find('AccountGroupID').get('ID')]
     account_id = account.find('AccountID').get('ID')
     print group.name, ' / ', account.get('Name'), currency_code
-    accounts[account_id] = AceAccount(account_id,
-                                      group,
-                                      account.get('Name'),
-                                      currency_code,
-                                      account.get('InitialBalance'),
-                                      account.get('Number'),
-                                      account.get('Comment'))
+    accounts[account_id] = AceAccount(account_id, group, account.get('Name'), currency_code,
+                                      account.get('InitialBalance'), account.get('Number'), account.get('Comment'),
+                                      account.get('IsClosed') == 'TRUE')
 
 xml_categories = tree.findall('.//Category')
 for category in xml_categories:

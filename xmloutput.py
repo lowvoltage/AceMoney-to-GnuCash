@@ -157,9 +157,6 @@ def write_account(name, account_id, account_type, account_code, currency, parent
     add_currency_child(acc, currency, 'act:commodity')
     act_scu = ET.SubElement(acc, 'act:commodity-scu')
     act_scu.text = currencies[currency]
-    # if description is not None:
-    # act_desc = ET.SubElement(acc, 'act:description')
-    #     act_desc.text = description
     if slots is not None:
         act_slots = ET.SubElement(acc, 'act:slots')
         for key in slots:
@@ -213,7 +210,12 @@ def write_ace_accounts(account_groups, accounts):
 
     # create an account for each AceMoney account
     for account in accounts:
-        slots = {'notes': build_comment(account)}
+        slots = {}
+        comment = build_comment(account)
+        if comment is not None and comment != '':
+            slots['notes'] = comment
+        if account.hidden:
+            slots['hidden'] = 'true'
         result += write_account(account.name, account.gnu_id, 'BANK', account.number, account.currency,
                                 account.group.gnu_id, slots)
 
@@ -261,7 +263,8 @@ def write_transaction(currency, day, description, num, reconciled, split_src, sp
     if description is not None:
         tran_desc.text = description
     tran_num = ET.SubElement(tran, 'trn:num')
-    if debug and num is not None:
+    # Note: 'num' field is the secondary sort criteria, after the transaction date
+    if num is not None:
         tran_num.text = num
     tran_slots = ET.SubElement(tran, 'trn:slots')
     tran_slot = ET.SubElement(tran_slots, 'slot')
