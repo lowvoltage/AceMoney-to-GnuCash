@@ -3,10 +3,11 @@ import xmloutput
 import gzip
 import uuid
 import argparse
+import sys
 
 # TODO: Setup valid FX rates for USD & JPY
-# TODO: Report object counts; Report objects; Transactions' progress report
 ace_currency_codes = {'155': 'BGN', '43': 'EUR', '63': 'JPY', '140': 'USD'}
+processed_count = 0
 
 
 class AceAccountGroup:
@@ -51,6 +52,8 @@ arg_parser.add_argument("-o", dest="output_filename", required=True, help="outpu
 args = arg_parser.parse_args()
 
 tree = ET.parse(args.input_filename)
+print 'Loaded', args.input_filename
+print
 
 payee_elements = tree.findall('.//Payee')
 print 'Found', len(payee_elements), 'payees:'
@@ -58,36 +61,52 @@ for payee in payee_elements:
     payee_id = payee.find('PayeeID').get('ID')
     payee_name = payee.get('Name')
     payees[payee_id] = payee_name
-    print(u"Payee ID={0} Name='{1}'".format(payee_id, payee_name))
+    print(u"Payee ID={0} '{1}'".format(payee_id, payee_name))
+print
 
-for group in tree.findall('.//AccountGroup'):
+account_group_elements = tree.findall('.//AccountGroup')
+print 'Found', len(account_group_elements), 'account groups:'
+for group in account_group_elements:
     group_id = group.find('AccountGroupID').get('ID')
-    account_groups[group_id] = AceAccountGroup(group_id, group.get('Name'))
+    group_name = group.get('Name')
+    account_groups[group_id] = AceAccountGroup(group_id, group_name)
+    print(u"Group ID={0} '{1}'".format(group_id, group_name))
+print
 
-for account in tree.findall('.//Account'):
+account_elements = tree.findall('.//Account')
+print 'Found', len(account_elements), 'accounts:'
+for account in account_elements:
     currency_code = ace_currency_codes[account.find('CurrencyID').get('ID')]
     group = account_groups[account.find('AccountGroupID').get('ID')]
     account_id = account.find('AccountID').get('ID')
-    print group.name, ' / ', account.get('Name'), currency_code
-    accounts[account_id] = AceAccount(account_id, group, account.get('Name'), currency_code,
-                                      account.get('InitialBalance'), account.get('Number'), account.get('Comment'),
-                                      account.get('IsClosed') == 'TRUE')
+    account_name = account.get('Name')
+    account_balance = account.get('InitialBalance')
 
-xml_categories = tree.findall('.//Category')
-for category in xml_categories:
+    print(u"Account ID={0} '{1} / {2}'".format(account_id, group.name, account_name))
+
+    accounts[account_id] = AceAccount(account_id, group, account_name, currency_code,
+                                      account_balance, account.get('Number'), account.get('Comment'),
+                                      account.get('IsClosed') == 'TRUE')
+print
+
+category_elements = tree.findall('.//Category')
+print 'Found', len(category_elements), 'categories:'
+for category in category_elements:
     category_id = category.find('CategoryID').get('ID')
     category_name = category.get('Name')
     if ':' not in category_name:
+        print(u"TopCategory ID={0} '{1}'".format(category_id, category_name))
         ace_category = AceCategory(category_id, None, category_name)
         categories[category_id] = ace_category
         categories_by_name[category_name] = ace_category
 
-for category in xml_categories:
+for category in category_elements:
     category_id = category.find('CategoryID').get('ID')
     category_name = category.get('Name')
 
     split = category_name.split(':')
     if len(split) == 2:
+        print(u"Category ID={0} '{1}'".format(category_id, category_name))
         parent = categories_by_name[split[0]]
         category_name = split[1]
 
@@ -96,6 +115,7 @@ for category in xml_categories:
 
 default_category = AceCategory(-1, None, 'Unassigned')
 categories[-1] = default_category
+print
 
 
 def get_payee_name(tran):
@@ -107,6 +127,11 @@ def get_payee_name(tran):
 
 
 def export_transaction(f, tran):
+    global processed_count
+    if processed_count % 100 == 0:
+        sys.stdout.write('.')
+    processed_count += 1
+
     tran_day = tran.get('Date')
     tran_id = tran.find('TransactionID').get('ID')
 
@@ -144,8 +169,13 @@ def get_sorted_transactions():
     sorted_pairs.sort()
     return [item[-1] for item in sorted_pairs]
 
+transactions = get_sorted_transactions()
+print 'Found', len(transactions), 'transactions'
+print
 
 f = open(args.output_filename, 'w')
+print 'Open for writing', args.output_filename
+
 f.write(xmloutput.write_header())
 f.write(xmloutput.write_commodities())
 f.write(xmloutput.write_fx_rates())
@@ -154,13 +184,18 @@ f.write(xmloutput.write_opening_balances())
 f.write(xmloutput.write_trading_accounts())
 f.write(xmloutput.write_ace_categories(categories.values()))
 f.write(xmloutput.write_ace_accounts(account_groups.values(), accounts.values()))
-for tran in get_sorted_transactions():
+for tran in transactions:
     export_transaction(f, tran)
 f.write(xmloutput.write_footer())
 f.close()
+print
 
+output_gz_filename = args.output_filename + '.gz'
 f_in = open(args.output_filename, 'rb')
-f_out = gzip.open(args.output_filename + '.gz', 'wb')
+f_out = gzip.open(output_gz_filename, 'wb')
+print 'Open for writing', output_gz_filename
 f_out.writelines(f_in)
 f_out.close()
 f_in.close()
+
+print 'Done'
