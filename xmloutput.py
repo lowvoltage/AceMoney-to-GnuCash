@@ -6,6 +6,7 @@ from fractions import Fraction
 default_currency = 'BGN'
 currencies = {'BGN': '100', 'USD': '100', 'EUR': '100', 'JPY': '1'}
 opening_balance_day = '2000-01-01'
+debug = False
 
 # auto-generated IDs
 def next_id():
@@ -194,7 +195,10 @@ def build_comment(account):
     comment = ''
     if account.comment is not None:
         comment = account.comment + '\n'
-    return comment + 'AceID=' + account.ace_id + ' Balance=' + account.balance
+    if debug:
+        return comment + 'AceID=' + account.ace_id + ' Balance=' + account.balance
+    else:
+        return comment
 
 
 def write_ace_accounts(account_groups, accounts):
@@ -203,7 +207,8 @@ def write_ace_accounts(account_groups, accounts):
     # create a top-level account for each AceMoney group
     for group in account_groups:
         slots = placeholder.copy()
-        slots['notes'] = 'AceGroupID=' + group.ace_id
+        if debug:
+            slots['notes'] = 'AceGroupID=' + group.ace_id
         result += write_account(group.name, group.gnu_id, 'BANK', None, default_currency, root_account_id, slots)
 
     # create an account for each AceMoney account
@@ -256,7 +261,7 @@ def write_transaction(currency, day, description, num, split_src, split_dest):
     if description is not None:
         tran_desc.text = description
     tran_num = ET.SubElement(tran, 'trn:num')
-    if num is not None:
+    if debug and num is not None:
         tran_num.text = num
     tran_slots = ET.SubElement(tran, 'trn:slots')
     tran_slot = ET.SubElement(tran_slots, 'slot')

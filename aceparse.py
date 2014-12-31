@@ -3,11 +3,13 @@ import xmloutput
 import gzip
 import uuid
 
+# TODO: Program parameters
+# TODO: Transaction Reconciled flag. IsClosed account flag
 # TODO: Support payeeID. Support splits
 # TODO: Setup valid FX rates for USD & JPY
 input_filename = "c:\Users\Mitko\Downloads\Accounts.xml"
 output_filename = "result.gnucash"
-currencies = {'155': 'BGN', '43': 'EUR', '63': 'JPY', '140': 'USD'}
+ace_currency_codes = {'155': 'BGN', '43': 'EUR', '63': 'JPY', '140': 'USD'}
 
 
 class AceAccountGroup:
@@ -50,7 +52,7 @@ for group in tree.findall('.//AccountGroup'):
     account_groups[group_id] = AceAccountGroup(group_id, group.get('Name'))
 
 for account in tree.findall('.//Account'):
-    currency_code = currencies[account.find('CurrencyID').get('ID')]
+    currency_code = ace_currency_codes[account.find('CurrencyID').get('ID')]
     group = account_groups[account.find('AccountGroupID').get('ID')]
     account_id = account.find('AccountID').get('ID')
     print group.name, ' / ', account.get('Name'), currency_code
