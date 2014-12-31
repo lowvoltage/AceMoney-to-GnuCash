@@ -2,13 +2,12 @@ import xml.etree.ElementTree as ET
 import xmloutput
 import gzip
 import uuid
+import argparse
 
-# TODO: Program parameters
 # TODO: Transaction Reconciled flag. IsClosed account flag
 # TODO: Support payeeID. Support splits
 # TODO: Setup valid FX rates for USD & JPY
-input_filename = "c:\Users\Mitko\Downloads\Accounts.xml"
-output_filename = "result.gnucash"
+# TODO: Report object counts; Report objects; Transactions' progress report
 ace_currency_codes = {'155': 'BGN', '43': 'EUR', '63': 'JPY', '140': 'USD'}
 
 
@@ -40,12 +39,18 @@ class AceCategory:
         self.gnu_id = uuid.uuid4().get_hex()
 
 
-tree = ET.parse(input_filename)
-
 account_groups = {}
 accounts = {}
 categories = {}
 categories_by_name = {}
+
+arg_parser = argparse.ArgumentParser(description="AceMoney to GnuCash converter")
+arg_parser.add_argument("-i", dest="input_filename", required=True, help="input .xml filename, exported from AceMoney",
+                    metavar="FILE")
+arg_parser.add_argument("-o", dest="output_filename", required=True, help="output .gnucash filename", metavar="FILE")
+args = arg_parser.parse_args()
+
+tree = ET.parse(args.input_filename)
 
 for group in tree.findall('.//AccountGroup'):
     group_id = group.find('AccountGroupID').get('ID')
@@ -88,6 +93,7 @@ for category in xml_categories:
 default_category = AceCategory(-1, None, 'Unassigned')
 categories[-1] = default_category
 
+
 def export_transaction(f, tran):
     tran_day = tran.get('Date')
     tran_id = tran.find('TransactionID').get('ID')
@@ -122,7 +128,7 @@ def get_sorted_transactions():
     return [item[-1] for item in sorted_pairs]
 
 
-f = open(output_filename, 'w')
+f = open(args.output_filename, 'w')
 f.write(xmloutput.write_header())
 f.write(xmloutput.write_commodities())
 f.write(xmloutput.write_fx_rates())
@@ -136,8 +142,8 @@ for tran in get_sorted_transactions():
 f.write(xmloutput.write_footer())
 f.close()
 
-f_in = open(output_filename, 'rb')
-f_out = gzip.open(output_filename + '.gz', 'wb')
+f_in = open(args.output_filename, 'rb')
+f_out = gzip.open(args.output_filename + '.gz', 'wb')
 f_out.writelines(f_in)
 f_out.close()
 f_in.close()
