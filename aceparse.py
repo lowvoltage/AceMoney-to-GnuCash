@@ -37,7 +37,7 @@ class AceCategory:
         self.ace_id = ace_id
         self.parent = parent
         self.name = name
-        self.currency = xmloutput.default_currency
+        self.currency = xmloutput.DEFAULT_CURRENCY
         self.gnu_id = uuid.uuid4().get_hex()
 
 

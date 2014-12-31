@@ -3,10 +3,10 @@ import uuid
 from fractions import Fraction
 
 # define default currency and all involved currencies, with their sub-units
-default_currency = 'BGN'
-currencies = {'BGN': '100', 'USD': '100', 'EUR': '100', 'JPY': '1'}
-opening_balance_day = '2000-01-01'
-debug = False
+DEFAULT_CURRENCY = 'BGN'
+CURRENCY_UNITS = {'BGN': '100', 'USD': '100', 'EUR': '100', 'JPY': '1'}
+OPENING_BALANCE_DAY = '2000-01-01'
+DEBUG = False
 
 # auto-generated IDs
 def next_id():
@@ -43,7 +43,7 @@ class GnuFxRate:
 
 # incomplete and BGN-specific
 def get_fx_rate(currency, day):
-    if currency == default_currency:
+    if currency == DEFAULT_CURRENCY:
         return 1.0
     if currency == 'EUR':
         return 1.95583
@@ -72,7 +72,7 @@ def write_currency_commodity(element, currency):
 
 def write_commodities():
     result = ''
-    for currency in sorted(currencies.keys()):
+    for currency in sorted(CURRENCY_UNITS.keys()):
         commodity = ET.Element('gnc:commodity', {'version': "2.0.0"})
         write_currency_commodity(commodity, currency)
         ET.SubElement(commodity, 'cmdty:get_quotes')
@@ -80,7 +80,7 @@ def write_commodities():
         cmd_src.text = 'currency'
         ET.SubElement(commodity, 'cmdty:quote_tz')
 
-        result += toxmlstring(commodity)
+        result += format_xml_string(commodity)
 
     with open("commodities.xml", "r") as comm:
         result += comm.read()
@@ -88,18 +88,18 @@ def write_commodities():
 
 
 def write_root_account():
-    return write_account('Root Account', root_account_id, 'ROOT', None, default_currency, None)
+    return write_account('Root Account', root_account_id, 'ROOT', None, DEFAULT_CURRENCY, None)
 
 
 def write_opening_balances():
     # create Equity and Equity:Opening Balances accounts
-    result = write_account('Equity', equity_account_id, 'EQUITY', None, default_currency, root_account_id,
+    result = write_account('Equity', equity_account_id, 'EQUITY', None, DEFAULT_CURRENCY, root_account_id,
                            placeholder)
-    result += write_account('Opening Balances', opening_balances_account_id, 'EQUITY', None, default_currency,
+    result += write_account('Opening Balances', opening_balances_account_id, 'EQUITY', None, DEFAULT_CURRENCY,
                             equity_account_id, placeholder)
 
     # create sub-accounts for each specified currency
-    for currency in sorted(currencies.keys()):
+    for currency in sorted(CURRENCY_UNITS.keys()):
         # generate and map the ID
         account_id = next_id()
         opening_balances_accounts_ids[currency] = account_id
@@ -111,13 +111,13 @@ def write_opening_balances():
 
 def write_trading_accounts():
     # create Trading and Trading:CURRENCY accounts
-    result = write_account('Trading', trading_account_id, 'TRADING', None, default_currency, root_account_id,
+    result = write_account('Trading', trading_account_id, 'TRADING', None, DEFAULT_CURRENCY, root_account_id,
                            placeholder)
-    result += write_account('CURRENCY', trading_currency_account_id, 'TRADING', None, default_currency,
+    result += write_account('CURRENCY', trading_currency_account_id, 'TRADING', None, DEFAULT_CURRENCY,
                             trading_account_id, placeholder)
 
     # create sub-accounts for each specified currency
-    for currency in sorted(currencies.keys()):
+    for currency in sorted(CURRENCY_UNITS.keys()):
         # generate and map the ID
         account_id = next_id()
         trading_currency_account_ids[currency] = account_id
@@ -138,7 +138,7 @@ def add_timestamp(parent_element, day, child_tag_name):
     date_inner.text = day + ' 00:00:00 +0200'
 
 
-def toxmlstring(element):
+def format_xml_string(element):
     indent(element)
     return ET.tostring(element, 'utf-8')
 
@@ -156,7 +156,7 @@ def write_account(name, account_id, account_type, account_code, currency, parent
         act_code.text = account_code
     add_currency_child(acc, currency, 'act:commodity')
     act_scu = ET.SubElement(acc, 'act:commodity-scu')
-    act_scu.text = currencies[currency]
+    act_scu.text = CURRENCY_UNITS[currency]
     if slots is not None:
         act_slots = ET.SubElement(acc, 'act:slots')
         for key in slots:
@@ -169,7 +169,7 @@ def write_account(name, account_id, account_type, account_code, currency, parent
         act_parent_id = ET.SubElement(acc, 'act:parent', {'type': "guid"})
         act_parent_id.text = parent_id
 
-    return toxmlstring(acc)
+    return format_xml_string(acc)
 
 
 def indent(elem, level=0):
@@ -199,7 +199,7 @@ def concat(first, second, spacer=''):
 
 
 def build_comment(account):
-    debug_info = 'AceID=' + account.ace_id + ' Balance=' + account.balance if debug else None
+    debug_info = 'AceID=' + account.ace_id + ' Balance=' + account.balance if DEBUG else None
     return concat(account.comment, debug_info, '\n')
 
 
@@ -209,9 +209,9 @@ def write_ace_accounts(account_groups, accounts):
     # create a top-level account for each AceMoney group
     for group in account_groups:
         slots = placeholder.copy()
-        if debug:
+        if DEBUG:
             slots['notes'] = 'AceGroupID=' + group.ace_id
-        result += write_account(group.name, group.gnu_id, 'BANK', None, default_currency, root_account_id, slots)
+        result += write_account(group.name, group.gnu_id, 'BANK', None, DEFAULT_CURRENCY, root_account_id, slots)
 
     # create an account for each AceMoney account
     for account in accounts:
@@ -235,7 +235,7 @@ def write_opening_balance_transaction(account):
     if account.balance == '0':
         return ''
 
-    return write_transaction(account.currency, opening_balance_day, None, None, True,
+    return write_transaction(account.currency, OPENING_BALANCE_DAY, None, None, True,
                              GnuSplit(account.gnu_id, account.balance, account.currency),
                              GnuSplit(opening_balances_accounts_ids[account.currency], account.balance,
                                       account.currency))
@@ -279,10 +279,10 @@ def write_transaction(currency, day, description, num, reconciled, split_src, sp
     gdate = ET.SubElement(tran_slot_value, 'gdate')
     gdate.text = day
 
-    multiplier_src = currencies[split_src.currency]
+    multiplier_src = CURRENCY_UNITS[split_src.currency]
     amount_src = int(round(float(split_src.amount) * float(multiplier_src)))
 
-    multiplier_dest = currencies[split_dest.currency]
+    multiplier_dest = CURRENCY_UNITS[split_dest.currency]
     amount_dest = int(round(float(split_dest.amount) * float(multiplier_dest)))
 
     tran_splits = ET.SubElement(tran, 'trn:splits')
@@ -301,21 +301,21 @@ def write_transaction(currency, day, description, num, reconciled, split_src, sp
         add_split(tran_splits, value_src_pos, value_dest_pos, trading_currency_account_ids[split_dest.currency],
                   reconciled)
 
-    return toxmlstring(tran)
+    return format_xml_string(tran)
 
 
 def write_ace_categories(categories):
-    result = write_account('Expense', expenses_account_id, 'EXPENSE', None, default_currency, root_account_id,
+    result = write_account('Expense', expenses_account_id, 'EXPENSE', None, DEFAULT_CURRENCY, root_account_id,
                            placeholder)
 
     for category in categories:
         if category.parent is None:
-            result += write_account(category.name, category.gnu_id, 'EXPENSE', None, default_currency,
+            result += write_account(category.name, category.gnu_id, 'EXPENSE', None, DEFAULT_CURRENCY,
                                     expenses_account_id)
 
     for category in categories:
         if category.parent is not None:
-            result += write_account(category.name, category.gnu_id, 'EXPENSE', None, default_currency,
+            result += write_account(category.name, category.gnu_id, 'EXPENSE', None, DEFAULT_CURRENCY,
                                     category.parent.gnu_id)
 
     return result
@@ -323,9 +323,9 @@ def write_ace_categories(categories):
 
 def write_fx_rates():
     fx_rates = []
-    for currency in sorted(currencies.keys()):
-        if currency != default_currency:
-            fx_rates.append(GnuFxRate(currency, get_fx_rate(currency, opening_balance_day), opening_balance_day))
+    for currency in sorted(CURRENCY_UNITS.keys()):
+        if currency != DEFAULT_CURRENCY:
+            fx_rates.append(GnuFxRate(currency, get_fx_rate(currency, OPENING_BALANCE_DAY), OPENING_BALANCE_DAY))
 
     pricedb = ET.Element('gnc:pricedb', {'version': "1"})
     for fx_rate in fx_rates:
@@ -333,7 +333,7 @@ def write_fx_rates():
         price_id = ET.SubElement(price, 'price:id', {'type': "guid"})
         price_id.text = next_id()
         add_currency_child(price, fx_rate.currency, 'price:commodity')
-        add_currency_child(price, default_currency, 'price:currency')
+        add_currency_child(price, DEFAULT_CURRENCY, 'price:currency')
         add_timestamp(price, fx_rate.day, 'price:time')
         price_src = ET.SubElement(price, 'price:source')
         price_src.text = 'user:price-editor'
@@ -342,4 +342,4 @@ def write_fx_rates():
         price_value = ET.SubElement(price, 'price:value')
         price_value.text = str(Fraction(fx_rate.rate).limit_denominator())
 
-    return toxmlstring(pricedb)
+    return format_xml_string(pricedb)
