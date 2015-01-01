@@ -2,8 +2,7 @@ import xml.etree.ElementTree as ET
 import urllib
 import time
 from datetime import date, datetime
-
-import xmloutput
+from config import indent
 
 
 LOOKUP_CURRENCIES = ('USD', 'JPY')
@@ -76,7 +75,7 @@ def main():
 
     print
     print 'Open for writing', OUTPUT_FILENAME
-    xmloutput.indent(xml_root)
+    indent(xml_root)
     ET.ElementTree(xml_root).write(OUTPUT_FILENAME, 'utf-8', True)
     print 'Done'
 

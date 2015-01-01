@@ -2,15 +2,9 @@ import xml.etree.ElementTree as ET
 import uuid
 from fractions import Fraction
 import os.path
-from datetime import date, datetime
-
-# define default currency and all involved currencies, with their sub-units
+from datetime import datetime
 import fxscraper
-
-DEFAULT_CURRENCY = 'BGN'
-CURRENCY_UNITS = {'BGN': '100', 'USD': '100', 'EUR': '100', 'JPY': '1'}
-OPENING_BALANCE_DAY = date(2000, 1, 1)
-DEBUG = False
+import config
 
 
 def next_id():
@@ -41,7 +35,7 @@ class GnuFxRate:
 
 # BGN-specific
 def get_fx_rate(currency, day):
-    if currency == DEFAULT_CURRENCY:
+    if currency == config.DEFAULT_CURRENCY:
         return 1.0
     if currency == 'EUR':
         return 1.95583
@@ -67,7 +61,7 @@ def write_currency_commodity(element, currency):
 
 
 def write_commodities(xml_root):
-    for currency in sorted(CURRENCY_UNITS.keys()):
+    for currency in sorted(config.CURRENCY_UNITS.keys()):
         commodity = ET.SubElement(xml_root, 'gnc:commodity', {'version': "2.0.0"})
         write_currency_commodity(commodity, currency)
         ET.SubElement(commodity, 'cmdty:get_quotes')
@@ -90,7 +84,7 @@ def write_opening_balances(xml_root):
                   slots=placeholder)
 
     # create sub-accounts for each specified currency
-    for currency in sorted(CURRENCY_UNITS.keys()):
+    for currency in sorted(config.CURRENCY_UNITS.keys()):
         # generate and map the ID
         account_id = next_id()
         opening_balances_accounts_ids[currency] = account_id
@@ -107,7 +101,7 @@ def write_trading_accounts(xml_root):
     write_account(xml_root, 'CURRENCY', trading_currency_account_id, trading_account_id, 'TRADING', slots=placeholder)
 
     # create sub-accounts for each specified currency
-    for currency in sorted(CURRENCY_UNITS.keys()):
+    for currency in sorted(config.CURRENCY_UNITS.keys()):
         # generate and map the ID
         account_id = next_id()
         trading_currency_account_ids[currency] = account_id
@@ -126,7 +120,8 @@ def add_timestamp(parent_element, day, child_tag_name):
     date_inner.text = str(day) + ' 00:00:00 +0200'
 
 
-def write_account(xml_root, name, account_id, parent_id, account_type, account_code=None, currency=DEFAULT_CURRENCY,
+def write_account(xml_root, name, account_id, parent_id, account_type, account_code=None,
+                  currency=config.DEFAULT_CURRENCY,
                   slots=None):
     acc = ET.SubElement(xml_root, 'gnc:account', {'version': "2.0.0"})
     act_name = ET.SubElement(acc, 'act:name')
@@ -140,7 +135,7 @@ def write_account(xml_root, name, account_id, parent_id, account_type, account_c
         act_code.text = account_code
     add_currency_child(acc, currency, 'act:commodity')
     act_scu = ET.SubElement(acc, 'act:commodity-scu')
-    act_scu.text = CURRENCY_UNITS[currency]
+    act_scu.text = config.CURRENCY_UNITS[currency]
     if slots is not None:
         act_slots = ET.SubElement(acc, 'act:slots')
         for key in slots:
@@ -154,42 +149,16 @@ def write_account(xml_root, name, account_id, parent_id, account_type, account_c
         act_parent_id.text = parent_id
 
 
-def indent(elem, level=0):
-    i = "\n" + level * "    "
-    if len(elem):
-        if not elem.text or not elem.text.strip():
-            elem.text = i + "    "
-        if not elem.tail or not elem.tail.strip():
-            elem.tail = i
-        for elem in elem:
-            indent(elem, level + 1)
-        if not elem.tail or not elem.tail.strip():
-            elem.tail = i
-    else:
-        if level and (not elem.tail or not elem.tail.strip()):
-            elem.tail = i
-
-
-def concat(first, second, spacer=''):
-    if first is not None:
-        result = first
-        if second is not None:
-            result += spacer + second
-        return result
-    else:
-        return second
-
-
 def build_comment(account):
-    debug_info = 'AceID=' + account.ace_id + ' Balance=' + account.balance if DEBUG else None
-    return concat(account.comment, debug_info, '\n')
+    debug_info = 'AceID=' + account.ace_id + ' Balance=' + account.balance if config.DEBUG else None
+    return config.concat(account.comment, debug_info, '\n')
 
 
 def write_ace_accounts(xml_root, account_groups, accounts):
     # create a top-level account for each AceMoney group
     for group in account_groups:
         slots = placeholder.copy()
-        if DEBUG:
+        if config.DEBUG:
             slots['notes'] = 'AceGroupID=' + group.ace_id
         write_account(xml_root, group.name, group.gnu_id, root_account_id, 'BANK', slots=slots)
 
@@ -209,7 +178,8 @@ def write_ace_accounts(xml_root, account_groups, accounts):
         if account.balance != '0':
             split_src = GnuSplit(account.gnu_id, account.balance, account.currency)
             split_dst = GnuSplit(opening_balances_accounts_ids[account.currency], account.balance, account.currency)
-            write_transaction(xml_root, account.currency, OPENING_BALANCE_DAY, None, None, True, split_src, split_dst)
+            write_transaction(xml_root, account.currency, config.OPENING_BALANCE_DAY, None, None, True, split_src,
+                              split_dst)
 
 
 def add_split(splits, value, quantity, account, reconciled):
@@ -250,10 +220,10 @@ def write_transaction(xml_root, currency, day, description, num, reconciled, spl
     gdate = ET.SubElement(tran_slot_value, 'gdate')
     gdate.text = str(day)
 
-    multiplier_src = CURRENCY_UNITS[split_src.currency]
+    multiplier_src = config.CURRENCY_UNITS[split_src.currency]
     amount_src = int(round(float(split_src.amount) * float(multiplier_src)))
 
-    multiplier_dst = CURRENCY_UNITS[split_dst.currency]
+    multiplier_dst = config.CURRENCY_UNITS[split_dst.currency]
     amount_dst = int(round(float(split_dst.amount) * float(multiplier_dst)))
 
     tran_splits = ET.SubElement(tran, 'trn:splits')
@@ -294,7 +264,7 @@ def write_fx_rates(xml_root):
     # lookup fx rates from a file?
     if os.path.exists(fxscraper.OUTPUT_FILENAME):
         # hardcoded
-        fx_rates.append(GnuFxRate('EUR', get_fx_rate('EUR', OPENING_BALANCE_DAY), OPENING_BALANCE_DAY))
+        fx_rates.append(GnuFxRate('EUR', get_fx_rate('EUR', config.OPENING_BALANCE_DAY), config.OPENING_BALANCE_DAY))
 
         fx_tree = ET.parse(fxscraper.OUTPUT_FILENAME)
         for fx_element in fx_tree.findall('.//rate'):
@@ -307,9 +277,10 @@ def write_fx_rates(xml_root):
 
     else:
         # default fx routine
-        for currency in sorted(CURRENCY_UNITS.keys()):
-            if currency != DEFAULT_CURRENCY:
-                fx_rates.append(GnuFxRate(currency, get_fx_rate(currency, OPENING_BALANCE_DAY), OPENING_BALANCE_DAY))
+        for currency in sorted(config.CURRENCY_UNITS.keys()):
+            if currency != config.DEFAULT_CURRENCY:
+                fx_rates.append(
+                    GnuFxRate(currency, get_fx_rate(currency, config.OPENING_BALANCE_DAY), config.OPENING_BALANCE_DAY))
 
     pricedb = ET.SubElement(xml_root, 'gnc:pricedb', {'version': "1"})
     for fx_rate in fx_rates:
@@ -317,7 +288,7 @@ def write_fx_rates(xml_root):
         price_id = ET.SubElement(price, 'price:id', {'type': "guid"})
         price_id.text = next_id()
         add_currency_child(price, fx_rate.currency, 'price:commodity')
-        add_currency_child(price, DEFAULT_CURRENCY, 'price:currency')
+        add_currency_child(price, config.DEFAULT_CURRENCY, 'price:currency')
         add_timestamp(price, fx_rate.day, 'price:time')
         price_src = ET.SubElement(price, 'price:source')
         price_src.text = 'user:price-editor'

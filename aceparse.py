@@ -1,4 +1,5 @@
 import xml.etree.ElementTree as ET
+import config
 import xmloutput
 import gzip
 import uuid
@@ -36,7 +37,7 @@ class AceCategory:
         self.ace_id = ace_id
         self.parent = parent
         self.name = name
-        self.currency = xmloutput.DEFAULT_CURRENCY
+        self.currency = config.DEFAULT_CURRENCY
         self.gnu_id = uuid.uuid4().get_hex()
 
 
@@ -157,7 +158,7 @@ def export_transaction(xml_root, tran):
     # Note: Limitations - 'cleared' state is ignored; The flag for the second transaction leg (if present) is ignored
     reconciled = tran.find('TransactionState').get('State') == '1'
 
-    description = xmloutput.concat(get_payee_name(tran), tran.get('Comment'), ': ')
+    description = config.concat(get_payee_name(tran), tran.get('Comment'), ': ')
 
     xmloutput.write_transaction(xml_root, account_src.currency, tran_day, description, tran_id, reconciled,
                                 xmloutput.GnuSplit(account_src.gnu_id, amount_src, account_src.currency),
@@ -216,7 +217,7 @@ for tran in transactions:
 
 print
 print 'Open for writing', args.output_filename
-xmloutput.indent(xml_root)
+config.indent(xml_root)
 xml_tree.write(args.output_filename, 'utf-8', True)
 
 output_gz_filename = args.output_filename + '.gz'
