@@ -17,21 +17,11 @@ def next_id():
     return uuid.uuid4().get_hex()
 
 
-# auto-generated IDs
 root_account_id = next_id()
-equity_account_id = next_id()
-opening_balances_account_id = next_id()
 opening_balances_accounts_ids = {}
-
-trading_account_id = next_id()
-trading_currency_account_id = next_id()
 trading_currency_account_ids = {}
-
-expenses_account_id = next_id()
-
 placeholder = {'placeholder': 'true'}
-fx_rates_map = {}       # key is (currency, day); value is fx-rate, a float
-
+fx_rates_map = {}  # key is (currency, day); value is fx-rate, a float
 
 
 class GnuSplit:
@@ -91,6 +81,9 @@ def write_root_account(xml_root):
 
 
 def write_opening_balances(xml_root):
+    equity_account_id = next_id()
+    opening_balances_account_id = next_id()
+
     # create Equity and Equity:Opening Balances accounts
     write_account(xml_root, 'Equity', equity_account_id, 'EQUITY', None, DEFAULT_CURRENCY, root_account_id, placeholder)
     write_account(xml_root, 'Opening Balances', opening_balances_account_id, 'EQUITY', None, DEFAULT_CURRENCY,
@@ -106,6 +99,9 @@ def write_opening_balances(xml_root):
 
 
 def write_trading_accounts(xml_root):
+    trading_account_id = next_id()
+    trading_currency_account_id = next_id()
+
     # create Trading and Trading:CURRENCY accounts
     write_account(xml_root, 'Trading', trading_account_id, 'TRADING', None, DEFAULT_CURRENCY, root_account_id,
                   placeholder)
@@ -211,17 +207,10 @@ def write_ace_accounts(xml_root, account_groups, accounts):
 
     # setup the initial balance transaction for each AceMoney account
     for account in accounts:
-        write_opening_balance_transaction(xml_root, account)
-
-
-def write_opening_balance_transaction(xml_root, account):
-    if account.balance == '0':
-        return ''
-
-    return write_transaction(xml_root, account.currency, OPENING_BALANCE_DAY, None, None, True,
-                             GnuSplit(account.gnu_id, account.balance, account.currency),
-                             GnuSplit(opening_balances_accounts_ids[account.currency], account.balance,
-                                      account.currency))
+        if account.balance != '0':
+            split_src = GnuSplit(account.gnu_id, account.balance, account.currency)
+            split_dest = GnuSplit(opening_balances_accounts_ids[account.currency], account.balance, account.currency)
+            write_transaction(xml_root, account.currency, OPENING_BALANCE_DAY, None, None, True, split_src, split_dest)
 
 
 def add_split(splits, value, quantity, account, reconciled):
@@ -286,6 +275,7 @@ def write_transaction(xml_root, currency, day, description, num, reconciled, spl
 
 
 def write_ace_categories(xml_root, categories):
+    expenses_account_id = next_id()
     write_account(xml_root, 'Expense', expenses_account_id, 'EXPENSE', None, DEFAULT_CURRENCY, root_account_id,
                   placeholder)
 
