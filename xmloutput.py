@@ -1,12 +1,15 @@
 import xml.etree.ElementTree as ET
 import uuid
 from fractions import Fraction
+import os.path
+from datetime import date, datetime
 
 # define default currency and all involved currencies, with their sub-units
 DEFAULT_CURRENCY = 'BGN'
 CURRENCY_UNITS = {'BGN': '100', 'USD': '100', 'EUR': '100', 'JPY': '1'}
-OPENING_BALANCE_DAY = '2000-01-01'
+OPENING_BALANCE_DAY = date(2000, 1, 1)
 DEBUG = False
+
 
 # auto-generated IDs
 def next_id():
@@ -25,6 +28,8 @@ trading_currency_account_ids = {}
 expenses_account_id = next_id()
 
 placeholder = {'placeholder': 'true'}
+fx_rates_map = {}       # key is (currency, day); value is fx-rate, a float
+
 
 class GnuSplit:
     def __init__(self, account_id, amount, currency):
@@ -41,12 +46,20 @@ class GnuFxRate:
         self.day = day
 
 
-# incomplete and BGN-specific
+# BGN-specific
 def get_fx_rate(currency, day):
     if currency == DEFAULT_CURRENCY:
         return 1.0
     if currency == 'EUR':
         return 1.95583
+
+    # check for a cached SOM FX
+    start_of_month = day.replace(day=1)
+    cached_fx = fx_rates_map[(currency, start_of_month)]
+    if cached_fx is not None:
+        return cached_fx
+
+    # final fallback
     if currency == 'USD':
         return 1.5
     if currency == 'JPY':
@@ -135,7 +148,7 @@ def add_currency_child(parent_element, currency, child_tag_name):
 def add_timestamp(parent_element, day, child_tag_name):
     date_outer = ET.SubElement(parent_element, child_tag_name)
     date_inner = ET.SubElement(date_outer, 'ts:date')
-    date_inner.text = day + ' 00:00:00 +0200'
+    date_inner.text = str(day) + ' 00:00:00 +0200'
 
 
 def format_xml_string(element):
@@ -277,7 +290,7 @@ def write_transaction(currency, day, description, num, reconciled, split_src, sp
     tran_slot_key.text = 'date-posted'
     tran_slot_value = ET.SubElement(tran_slot, 'slot:value', {'type': "gdate"})
     gdate = ET.SubElement(tran_slot_value, 'gdate')
-    gdate.text = day
+    gdate.text = str(day)
 
     multiplier_src = CURRENCY_UNITS[split_src.currency]
     amount_src = int(round(float(split_src.amount) * float(multiplier_src)))
@@ -323,9 +336,26 @@ def write_ace_categories(categories):
 
 def write_fx_rates():
     fx_rates = []
-    for currency in sorted(CURRENCY_UNITS.keys()):
-        if currency != DEFAULT_CURRENCY:
-            fx_rates.append(GnuFxRate(currency, get_fx_rate(currency, OPENING_BALANCE_DAY), OPENING_BALANCE_DAY))
+
+    # lookup fx rates from a file?
+    if os.path.exists('fxrates.xml'):
+        # hardcoded
+        fx_rates.append(GnuFxRate('EUR', get_fx_rate('EUR', OPENING_BALANCE_DAY), OPENING_BALANCE_DAY))
+
+        fx_tree = ET.parse('fxrates.xml')
+        for fx_element in fx_tree.findall('.//rate'):
+            currency = fx_element.get('currency')
+            fx_rate = fx_element.get('fx')
+            day = datetime.strptime(fx_element.get('day'), '%Y-%m-%d').date()
+
+            fx_rates.append(GnuFxRate(currency, fx_rate, day))
+            fx_rates_map[(currency, day)] = float(fx_rate)
+
+    else:
+        # default fx routine
+        for currency in sorted(CURRENCY_UNITS.keys()):
+            if currency != DEFAULT_CURRENCY:
+                fx_rates.append(GnuFxRate(currency, get_fx_rate(currency, OPENING_BALANCE_DAY), OPENING_BALANCE_DAY))
 
     pricedb = ET.Element('gnc:pricedb', {'version': "1"})
     for fx_rate in fx_rates:

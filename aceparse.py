@@ -4,8 +4,8 @@ import gzip
 import uuid
 import argparse
 import sys
+from datetime import datetime
 
-# TODO: Setup valid FX rates for USD & JPY
 # TODO: General code style; Docs
 # TODO: Build an actual XML file, not a text file
 ace_currency_codes = {'155': 'BGN', '43': 'EUR', '63': 'JPY', '140': 'USD'}
@@ -152,7 +152,8 @@ def export_transaction(f, tran):
         account_src = accounts[tran_accounts[0].get('ID')]
         account_dest = categories[tran_cat_id]
         amount_src = tran.get('Amount')
-        amount_dest = str(float(amount_src) * xmloutput.get_fx_rate(account_src.currency, tran_day))
+        day = datetime.strptime(tran_day, '%Y-%m-%d').date()
+        amount_dest = str(float(amount_src) * xmloutput.get_fx_rate(account_src.currency, day))
 
     # Note: Limitations - 'cleared' state is ignored; The flag for the second transaction leg (if present) is ignored
     reconciled = tran.find('TransactionState').get('State') == '1'
