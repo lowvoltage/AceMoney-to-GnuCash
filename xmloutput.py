@@ -1,9 +1,7 @@
 import xml.etree.ElementTree as ET
 import uuid
 from fractions import Fraction
-import os.path
-from datetime import datetime
-import fxscraper
+
 import config
 
 
@@ -15,7 +13,6 @@ root_account_id = next_id()
 opening_balances_accounts_ids = {}
 trading_currency_account_ids = {}
 placeholder = {'placeholder': 'true'}
-fx_rates_map = {}  # key is (currency, day); value is fx-rate, a float
 
 
 class GnuSplit:
@@ -23,34 +20,6 @@ class GnuSplit:
         self.account_id = account_id
         self.amount = amount
         self.currency = currency
-
-
-# 1 of 'currency' = 'rate' of 'default_currency'
-class GnuFxRate:
-    def __init__(self, currency, rate, day):
-        self.currency = currency
-        self.rate = rate
-        self.day = day
-
-
-# BGN-specific
-def get_fx_rate(currency, day):
-    if currency == config.DEFAULT_CURRENCY:
-        return 1.0
-    if currency == 'EUR':
-        return 1.95583
-
-    # check for a cached SOM FX
-    start_of_month = day.replace(day=1)
-    cached_fx = fx_rates_map[(currency, start_of_month)]
-    if cached_fx is not None:
-        return cached_fx
-
-    # final fallback
-    if currency == 'USD':
-        return 1.5
-    if currency == 'JPY':
-        return 0.015
 
 
 def write_currency_commodity(element, currency):
@@ -259,40 +228,20 @@ def write_ace_categories(xml_root, categories):
 
 
 def write_fx_rates(xml_root):
-    fx_rates = []
-
-    # lookup fx rates from a file?
-    if os.path.exists(fxscraper.OUTPUT_FILENAME):
-        # hardcoded
-        fx_rates.append(GnuFxRate('EUR', get_fx_rate('EUR', config.OPENING_BALANCE_DAY), config.OPENING_BALANCE_DAY))
-
-        fx_tree = ET.parse(fxscraper.OUTPUT_FILENAME)
-        for fx_element in fx_tree.findall('.//rate'):
-            currency = fx_element.get('currency')
-            fx_rate = fx_element.get('fx')
-            day = datetime.strptime(fx_element.get('day'), '%Y-%m-%d').date()
-
-            fx_rates.append(GnuFxRate(currency, fx_rate, day))
-            fx_rates_map[(currency, day)] = float(fx_rate)
-
-    else:
-        # default fx routine
-        for currency in sorted(config.CURRENCY_UNITS.keys()):
-            if currency != config.DEFAULT_CURRENCY:
-                fx_rates.append(
-                    GnuFxRate(currency, get_fx_rate(currency, config.OPENING_BALANCE_DAY), config.OPENING_BALANCE_DAY))
+    config.init_fx_rates()
 
     pricedb = ET.SubElement(xml_root, 'gnc:pricedb', {'version': "1"})
-    for fx_rate in fx_rates:
+    for key in sorted(config.fx_rates_map.keys()):
+        fx_rate = config.fx_rates_map[key]
         price = ET.SubElement(pricedb, 'price')
         price_id = ET.SubElement(price, 'price:id', {'type': "guid"})
         price_id.text = next_id()
-        add_currency_child(price, fx_rate.currency, 'price:commodity')
+        add_currency_child(price, key[0], 'price:commodity')
         add_currency_child(price, config.DEFAULT_CURRENCY, 'price:currency')
-        add_timestamp(price, fx_rate.day, 'price:time')
+        add_timestamp(price, key[1], 'price:time')
         price_src = ET.SubElement(price, 'price:source')
         price_src.text = 'user:price-editor'
         price_type = ET.SubElement(price, 'price:type')
         price_type.text = 'unknown'
         price_value = ET.SubElement(price, 'price:value')
-        price_value.text = str(Fraction(fx_rate.rate).limit_denominator())
+        price_value.text = str(Fraction(fx_rate).limit_denominator())

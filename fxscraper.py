@@ -2,12 +2,11 @@ import xml.etree.ElementTree as ET
 import urllib
 import time
 from datetime import date, datetime
-from config import indent
+import config
 
 
 LOOKUP_CURRENCIES = ('USD', 'JPY')
 START_YEAR = 2004
-OUTPUT_FILENAME = 'fxrates.xml'
 BASE_URL = "http://www.bnb.bg/Statistics/StExternalSector/StExchangeRates/StERForeignCurrencies/index.htm" \
            "?downloadOper=&group1=second&" \
            "periodStartDays=01&periodStartMonths={0}&periodStartYear={1}&" \
@@ -74,9 +73,9 @@ def main():
             time.sleep(0.1)
 
     print
-    print 'Open for writing', OUTPUT_FILENAME
-    indent(xml_root)
-    ET.ElementTree(xml_root).write(OUTPUT_FILENAME, 'utf-8', True)
+    print 'Open for writing', config.FX_RATES_FILENAME
+    config.indent(xml_root)
+    ET.ElementTree(xml_root).write(config.FX_RATES_FILENAME, 'utf-8', True)
     print 'Done'
 
 

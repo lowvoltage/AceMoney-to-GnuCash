@@ -153,7 +153,7 @@ def export_transaction(xml_root, tran):
         account_dst = categories[tran_cat_id]
         amount_src = tran.get('Amount')
         day = datetime.strptime(tran_day, '%Y-%m-%d').date()
-        amount_dst = str(float(amount_src) * xmloutput.get_fx_rate(account_src.currency, day))
+        amount_dst = str(float(amount_src) * config.get_fx_rate(account_src.currency, day))
 
     # Note: Limitations - 'cleared' state is ignored; The flag for the second transaction leg (if present) is ignored
     reconciled = tran.find('TransactionState').get('State') == '1'
