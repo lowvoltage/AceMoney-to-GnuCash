@@ -163,7 +163,9 @@ def export_transaction(xml_root, tran):
                                 xmloutput.GnuSplit(account_src.gnu_id, amount_src, account_src.currency),
                                 xmloutput.GnuSplit(account_dest.gnu_id, amount_dest, account_dest.currency))
 
+
 def parse_and_get_ns(file):
+    """ http://stackoverflow.com/questions/1953761/accessing-xmlns-attribute-with-python-elementree """
     events = "start", "start-ns"
     root = None
     ns = {}
@@ -192,16 +194,15 @@ def get_sorted_transactions():
 
 transactions = get_sorted_transactions()
 print 'Found', len(transactions), 'transactions'
-print
 
-xml_tree, ns = parse_and_get_ns('header.xml')
+xml_tree, ns = parse_and_get_ns('skeleton.gnucash')
 
-print ns
-for key in ns.keys():
-    ET.register_namespace(key, ns[key].replace('{', '').replace('}', ''))
+# invert the ns map. strip curly brackets
+ns_inverted = {v[1:-1]: k for k, v in ns.items()}
+ET._namespace_map.update(ns_inverted)
 
 xml_root = xml_tree.getroot()
-gnc_book_element = xml_root.find('{http://www.gnucash.org/XML/gnc}book')
+gnc_book_element = xml_root.find(ns['gnc'] + 'book')
 
 xmloutput.write_commodities(gnc_book_element)
 xmloutput.write_fx_rates(gnc_book_element)
@@ -216,8 +217,7 @@ for tran in transactions:
 print
 print 'Open for writing', args.output_filename
 xmloutput.indent(xml_root)
-ET.ElementTree(xml_root).write(args.output_filename, 'utf-8', True)
-
+xml_tree.write(args.output_filename, 'utf-8', True)
 
 output_gz_filename = args.output_filename + '.gz'
 f_in = open(args.output_filename, 'rb')
