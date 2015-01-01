@@ -7,7 +7,6 @@ import sys
 from datetime import datetime
 
 # TODO: General code style; Docs
-# TODO: Build an actual XML file, not a text file
 ace_currency_codes = {'155': 'BGN', '43': 'EUR', '63': 'JPY', '140': 'USD'}
 processed_count = 0
 
@@ -164,6 +163,24 @@ def export_transaction(xml_root, tran):
                                 xmloutput.GnuSplit(account_src.gnu_id, amount_src, account_src.currency),
                                 xmloutput.GnuSplit(account_dest.gnu_id, amount_dest, account_dest.currency))
 
+def parse_and_get_ns(file):
+    events = "start", "start-ns"
+    root = None
+    ns = {}
+    for event, elem in ET.iterparse(file, events):
+        if event == "start-ns":
+            if elem[0] in ns and ns[elem[0]] != elem[1]:
+                # NOTE: It is perfectly valid to have the same prefix refer
+                #     to different URI namespaces in different parts of the
+                #     document. This exception serves as a reminder that this
+                #     solution is not robust.    Use at your own peril.
+                raise KeyError("Duplicate prefix with different URI found.")
+            ns[elem[0]] = "{%s}" % elem[1]
+        elif event == "start":
+            if root is None:
+                root = elem
+    return ET.ElementTree(root), ns
+
 
 def get_sorted_transactions():
     sorted_pairs = []
@@ -177,15 +194,15 @@ transactions = get_sorted_transactions()
 print 'Found', len(transactions), 'transactions'
 print
 
-xml_root = ET.Element('gnc-v2')
-gnc_book_element = ET.SubElement(xml_root, 'gnc:book', {'version': "2.0.0"})
-book_id_element = ET.SubElement(gnc_book_element, 'book:id', {'type': "guid"})
-book_id_element.text = xmloutput.next_id()
-book_slots_element = ET.SubElement(gnc_book_element, 'book:slots')
+xml_tree, ns = parse_and_get_ns('header.xml')
 
-# xmloutput.indent(gnc_book_element)
+print ns
+for key in ns.keys():
+    ET.register_namespace(key, ns[key].replace('{', '').replace('}', ''))
 
-# f.write(xmloutput.write_header())
+xml_root = xml_tree.getroot()
+gnc_book_element = xml_root.find('{http://www.gnucash.org/XML/gnc}book')
+
 xmloutput.write_commodities(gnc_book_element)
 xmloutput.write_fx_rates(gnc_book_element)
 xmloutput.write_root_account(gnc_book_element)
@@ -194,30 +211,13 @@ xmloutput.write_trading_accounts(gnc_book_element)
 xmloutput.write_ace_categories(gnc_book_element, categories.values())
 xmloutput.write_ace_accounts(gnc_book_element, account_groups.values(), accounts.values())
 for tran in transactions:
-    export_transaction(xml_root, tran)
-# f.write(xmloutput.write_footer())
-# f.close()
+    export_transaction(gnc_book_element, tran)
+
 print
 print 'Open for writing', args.output_filename
 xmloutput.indent(xml_root)
 ET.ElementTree(xml_root).write(args.output_filename, 'utf-8', True)
 
-# f = open(args.output_filename, 'w')
-# print 'Open for writing', args.output_filename
-#
-# f.write(xmloutput.write_header())
-# f.write(xmloutput.write_commodities())
-# f.write(xmloutput.write_fx_rates())
-# f.write(xmloutput.write_root_account())
-# f.write(xmloutput.write_opening_balances())
-# f.write(xmloutput.write_trading_accounts())
-# f.write(xmloutput.write_ace_categories(categories.values()))
-# f.write(xmloutput.write_ace_accounts(account_groups.values(), accounts.values()))
-# for tran in transactions:
-# export_transaction(f, tran)
-# f.write(xmloutput.write_footer())
-# f.close()
-# print
 
 output_gz_filename = args.output_filename + '.gz'
 f_in = open(args.output_filename, 'rb')

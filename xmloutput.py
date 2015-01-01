@@ -69,16 +69,6 @@ def get_fx_rate(currency, day):
         return 0.015
 
 
-def write_header():
-    with open("header.xml", "r") as header:
-        return header.read()
-
-
-def write_footer():
-    with open("footer.xml", "r") as footer:
-        return footer.read()
-
-
 def write_currency_commodity(element, currency):
     cmd_space = ET.SubElement(element, 'cmdty:space')
     cmd_space.text = 'ISO4217'
@@ -95,10 +85,6 @@ def write_commodities(xml_root):
         cmd_src.text = 'currency'
         ET.SubElement(commodity, 'cmdty:quote_tz')
 
-        # TODO
-        # with open("commodities.xml", "r") as comm:
-        # result += comm.read()
-        # indent(commodity)
 
 def write_root_account(xml_root):
     write_account(xml_root, 'Root Account', root_account_id, 'ROOT', None, DEFAULT_CURRENCY, None)
@@ -146,11 +132,6 @@ def add_timestamp(parent_element, day, child_tag_name):
     date_inner.text = str(day) + ' 00:00:00 +0200'
 
 
-def format_xml_string(element):
-    indent(element)
-    return ET.tostring(element, 'utf-8')
-
-
 def write_account(xml_root, name, account_id, account_type, account_code, currency, parent_id, slots=None):
     acc = ET.SubElement(xml_root, 'gnc:account', {'version': "2.0.0"})
     act_name = ET.SubElement(acc, 'act:name')
@@ -176,7 +157,6 @@ def write_account(xml_root, name, account_id, account_type, account_code, curren
     if parent_id is not None:
         act_parent_id = ET.SubElement(acc, 'act:parent', {'type': "guid"})
         act_parent_id.text = parent_id
-    # indent(acc)
 
 
 def indent(elem, level=0):
@@ -303,7 +283,6 @@ def write_transaction(xml_root, currency, day, description, num, reconciled, spl
                   reconciled)
         add_split(tran_splits, value_src_pos, value_dest_pos, trading_currency_account_ids[split_dest.currency],
                   reconciled)
-    # indent(tran)
 
 
 def write_ace_categories(xml_root, categories):
@@ -358,4 +337,3 @@ def write_fx_rates(xml_root):
         price_type.text = 'unknown'
         price_value = ET.SubElement(price, 'price:value')
         price_value.text = str(Fraction(fx_rate.rate).limit_denominator())
-        # indent(price)
