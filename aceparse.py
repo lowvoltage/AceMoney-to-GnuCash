@@ -144,15 +144,15 @@ def export_transaction(xml_root, tran):
     tran_accounts = tran.findall('AccountID')
     if len(tran_accounts) == 2:
         account_src = accounts[tran_accounts[1].get('ID')]
-        account_dest = accounts[tran_accounts[0].get('ID')]
+        account_dst = accounts[tran_accounts[0].get('ID')]
         amount_src = tran.get('TransferAmount')
-        amount_dest = tran.get('Amount')
+        amount_dst = tran.get('Amount')
     else:
         account_src = accounts[tran_accounts[0].get('ID')]
-        account_dest = categories[tran_cat_id]
+        account_dst = categories[tran_cat_id]
         amount_src = tran.get('Amount')
         day = datetime.strptime(tran_day, '%Y-%m-%d').date()
-        amount_dest = str(float(amount_src) * xmloutput.get_fx_rate(account_src.currency, day))
+        amount_dst = str(float(amount_src) * xmloutput.get_fx_rate(account_src.currency, day))
 
     # Note: Limitations - 'cleared' state is ignored; The flag for the second transaction leg (if present) is ignored
     reconciled = tran.find('TransactionState').get('State') == '1'
@@ -161,7 +161,7 @@ def export_transaction(xml_root, tran):
 
     xmloutput.write_transaction(xml_root, account_src.currency, tran_day, description, tran_id, reconciled,
                                 xmloutput.GnuSplit(account_src.gnu_id, amount_src, account_src.currency),
-                                xmloutput.GnuSplit(account_dest.gnu_id, amount_dest, account_dest.currency))
+                                xmloutput.GnuSplit(account_dst.gnu_id, amount_dst, account_dst.currency))
 
 
 def parse_and_get_ns(file):
