@@ -5,17 +5,19 @@ import os.path
 from datetime import date, datetime
 
 # define default currency and all involved currencies, with their sub-units
+import fxscraper
+
 DEFAULT_CURRENCY = 'BGN'
 CURRENCY_UNITS = {'BGN': '100', 'USD': '100', 'EUR': '100', 'JPY': '1'}
 OPENING_BALANCE_DAY = date(2000, 1, 1)
 DEBUG = False
 
 
-# auto-generated IDs
 def next_id():
     return uuid.uuid4().get_hex()
 
 
+# auto-generated IDs
 root_account_id = next_id()
 equity_account_id = next_id()
 opening_balances_account_id = next_id()
@@ -338,11 +340,11 @@ def write_fx_rates():
     fx_rates = []
 
     # lookup fx rates from a file?
-    if os.path.exists('fxrates.xml'):
+    if os.path.exists(fxscraper.OUTPUT_FILENAME):
         # hardcoded
         fx_rates.append(GnuFxRate('EUR', get_fx_rate('EUR', OPENING_BALANCE_DAY), OPENING_BALANCE_DAY))
 
-        fx_tree = ET.parse('fxrates.xml')
+        fx_tree = ET.parse(fxscraper.OUTPUT_FILENAME)
         for fx_element in fx_tree.findall('.//rate'):
             currency = fx_element.get('currency')
             fx_rate = fx_element.get('fx')
