@@ -77,7 +77,7 @@ def write_commodities(xml_root):
 
 
 def write_root_account(xml_root):
-    write_account(xml_root, 'Root Account', root_account_id, 'ROOT', None, DEFAULT_CURRENCY, None)
+    write_account(xml_root, 'Root Account', root_account_id, None, 'ROOT')
 
 
 def write_opening_balances(xml_root):
@@ -85,9 +85,9 @@ def write_opening_balances(xml_root):
     opening_balances_account_id = next_id()
 
     # create Equity and Equity:Opening Balances accounts
-    write_account(xml_root, 'Equity', equity_account_id, 'EQUITY', None, DEFAULT_CURRENCY, root_account_id, placeholder)
-    write_account(xml_root, 'Opening Balances', opening_balances_account_id, 'EQUITY', None, DEFAULT_CURRENCY,
-                  equity_account_id, placeholder)
+    write_account(xml_root, 'Equity', equity_account_id, root_account_id, 'EQUITY', slots=placeholder)
+    write_account(xml_root, 'Opening Balances', opening_balances_account_id, equity_account_id, 'EQUITY',
+                  slots=placeholder)
 
     # create sub-accounts for each specified currency
     for currency in sorted(CURRENCY_UNITS.keys()):
@@ -95,7 +95,7 @@ def write_opening_balances(xml_root):
         account_id = next_id()
         opening_balances_accounts_ids[currency] = account_id
 
-        write_account(xml_root, currency, account_id, 'EQUITY', None, currency, opening_balances_account_id)
+        write_account(xml_root, currency, account_id, opening_balances_account_id, 'EQUITY', None, currency)
 
 
 def write_trading_accounts(xml_root):
@@ -103,10 +103,8 @@ def write_trading_accounts(xml_root):
     trading_currency_account_id = next_id()
 
     # create Trading and Trading:CURRENCY accounts
-    write_account(xml_root, 'Trading', trading_account_id, 'TRADING', None, DEFAULT_CURRENCY, root_account_id,
-                  placeholder)
-    write_account(xml_root, 'CURRENCY', trading_currency_account_id, 'TRADING', None, DEFAULT_CURRENCY,
-                  trading_account_id, placeholder)
+    write_account(xml_root, 'Trading', trading_account_id, root_account_id, 'TRADING', slots=placeholder)
+    write_account(xml_root, 'CURRENCY', trading_currency_account_id, trading_account_id, 'TRADING', slots=placeholder)
 
     # create sub-accounts for each specified currency
     for currency in sorted(CURRENCY_UNITS.keys()):
@@ -114,7 +112,7 @@ def write_trading_accounts(xml_root):
         account_id = next_id()
         trading_currency_account_ids[currency] = account_id
 
-        write_account(xml_root, currency, account_id, 'TRADING', None, currency, trading_currency_account_id)
+        write_account(xml_root, currency, account_id, trading_currency_account_id, 'TRADING', None, currency)
 
 
 def add_currency_child(parent_element, currency, child_tag_name):
@@ -128,7 +126,8 @@ def add_timestamp(parent_element, day, child_tag_name):
     date_inner.text = str(day) + ' 00:00:00 +0200'
 
 
-def write_account(xml_root, name, account_id, account_type, account_code, currency, parent_id, slots=None):
+def write_account(xml_root, name, account_id, parent_id, account_type, account_code=None, currency=DEFAULT_CURRENCY,
+                  slots=None):
     acc = ET.SubElement(xml_root, 'gnc:account', {'version': "2.0.0"})
     act_name = ET.SubElement(acc, 'act:name')
     act_name.text = name
@@ -192,7 +191,7 @@ def write_ace_accounts(xml_root, account_groups, accounts):
         slots = placeholder.copy()
         if DEBUG:
             slots['notes'] = 'AceGroupID=' + group.ace_id
-        write_account(xml_root, group.name, group.gnu_id, 'BANK', None, DEFAULT_CURRENCY, root_account_id, slots)
+        write_account(xml_root, group.name, group.gnu_id, root_account_id, 'BANK', slots=slots)
 
     # create an account for each AceMoney account
     for account in accounts:
@@ -202,8 +201,8 @@ def write_ace_accounts(xml_root, account_groups, accounts):
             slots['notes'] = comment
         if account.hidden:
             slots['hidden'] = 'true'
-        write_account(xml_root, account.name, account.gnu_id, 'BANK', account.number, account.currency,
-                      account.group.gnu_id, slots)
+        write_account(xml_root, account.name, account.gnu_id, account.group.gnu_id, 'BANK', account.number,
+                      account.currency, slots)
 
     # setup the initial balance transaction for each AceMoney account
     for account in accounts:
@@ -276,18 +275,17 @@ def write_transaction(xml_root, currency, day, description, num, reconciled, spl
 
 def write_ace_categories(xml_root, categories):
     expenses_account_id = next_id()
-    write_account(xml_root, 'Expense', expenses_account_id, 'EXPENSE', None, DEFAULT_CURRENCY, root_account_id,
-                  placeholder)
+    write_account(xml_root, 'Expense', expenses_account_id, root_account_id, 'EXPENSE', slots=placeholder)
 
+    # first pass: top-level categories
     for category in categories:
         if category.parent is None:
-            write_account(xml_root, category.name, category.gnu_id, 'EXPENSE', None, DEFAULT_CURRENCY,
-                          expenses_account_id)
+            write_account(xml_root, category.name, category.gnu_id, expenses_account_id, 'EXPENSE')
 
+    # second pass: lower-level categories
     for category in categories:
         if category.parent is not None:
-            write_account(xml_root, category.name, category.gnu_id, 'EXPENSE', None, DEFAULT_CURRENCY,
-                          category.parent.gnu_id)
+            write_account(xml_root, category.name, category.gnu_id, category.parent.gnu_id, 'EXPENSE')
 
 
 def write_fx_rates(xml_root):
