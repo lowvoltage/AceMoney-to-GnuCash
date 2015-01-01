@@ -10,8 +10,9 @@ output_filename = 'fxrates.xml'
 
 base_url = "http://www.bnb.bg/Statistics/StExternalSector/StExchangeRates/StERForeignCurrencies/index.htm" \
       "?downloadOper=&group1=second&" \
-      "periodStartDays=01&periodStartMonths=MONTH&periodStartYear=YEAR&" \
-      "periodEndDays=10&periodEndMonths=MONTH&periodEndYear=YEAR&valutes=CURRENCY&search=true"
+      "periodStartDays=01&periodStartMonths={0}&periodStartYear={1}&" \
+      "periodEndDays=10&periodEndMonths={0}&periodEndYear={1}&" \
+      "valutes={2}&search=true"
 
 xml_root = ET.Element('rates')
 
@@ -19,16 +20,15 @@ xml_root = ET.Element('rates')
 for currency in ('USD', 'JPY'):
     for year in range(start_year, end_year + 1):
         for month in range(1, 13):
-            # setup request url
-            url = base_url.replace('MONTH', str(month)).replace('YEAR', str(year)).replace('CURRENCY', currency)
+            # setup request url, get
+            url = base_url.format(month, year, currency)
+            page_lines = urllib.urlopen(url).read().splitlines()
 
-            page_string = urllib.urlopen(url).read()
-            page_lines = page_string.splitlines()
-
-            # locate the FX-rates table
+            # locate the FX-rates table start & end
             open_line_index = page_lines.index('<tbody>')
             close_line_index = page_lines.index('</tbody>')
 
+            # extract
             sub_list = page_lines[open_line_index:close_line_index + 1]
             sub_string = '\n'.join(sub_list)
 
