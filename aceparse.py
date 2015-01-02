@@ -138,7 +138,7 @@ class AceMoneyToGnuCash:
         writer.write_commodities()
         writer.write_fx_rates()
         writer.write_root_account()
-        writer.write_opening_balances()
+        writer.write_opening_balance_accounts()
         writer.write_trading_accounts()
         writer.write_ace_categories(self.categories.values())
         writer.write_ace_account_groups(self.account_groups.values())
@@ -184,9 +184,12 @@ class AceMoneyToGnuCash:
         reconciled = tran.find('TransactionState').get('State') == '1'
         description = config.concat(self.get_payee_name(tran), tran.get('Comment'), ': ')
 
-        writer.write_transaction(account_src.currency, tran_day, description, tran_id, reconciled,
-                                 gnucashxmlwriter.Split(account_src.gnu_id, amount_src, account_src.currency),
-                                 gnucashxmlwriter.Split(account_dst.gnu_id, amount_dst, account_dst.currency))
+        if tran_cat_id in config.ACE_OPENING_BALANCE_CATEGORY_IDS:
+            writer.write_opening_transaction(account_src, amount_src, tran_day, description, tran_id, reconciled)
+        else:
+            writer.write_transaction(account_src.currency, tran_day, description, tran_id, reconciled,
+                                     gnucashxmlwriter.Split(account_src.gnu_id, amount_src, account_src.currency),
+                                     gnucashxmlwriter.Split(account_dst.gnu_id, amount_dst, account_dst.currency))
 
 
 def create_zip(output_filename, output_gz_filename):

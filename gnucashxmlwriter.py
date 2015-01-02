@@ -47,7 +47,7 @@ class GnuCashXmlWriter:
     def write_root_account(self):
         self.write_account('Root Account', self.root_account_id, None, 'ROOT')
 
-    def write_opening_balances(self):
+    def write_opening_balance_accounts(self):
         equity_account_id = config.next_id()
         opening_balances_account_id = config.next_id()
 
@@ -116,6 +116,11 @@ class GnuCashXmlWriter:
                 slots['notes'] = 'AceGroupID=' + group.ace_id
             self.write_account(group.name, group.gnu_id, self.root_account_id, 'BANK', slots=slots)
 
+    def write_opening_transaction(self, account, amount, day, description=None, num=None, reconciled=True):
+        split_src = Split(account.gnu_id, amount, account.currency)
+        split_dst = Split(self.opening_balances_accounts_ids[account.currency], amount, account.currency)
+        self.write_transaction(account.currency, day, description, num, reconciled, split_src, split_dst)
+
     def write_ace_accounts(self, accounts):
         # create an account for each AceMoney account
         for account in accounts:
@@ -132,11 +137,7 @@ class GnuCashXmlWriter:
         # setup the initial balance transaction for each AceMoney account
         for account in accounts:
             if account.balance != '0':
-                split_src = Split(account.gnu_id, account.balance, account.currency)
-                split_dst = Split(self.opening_balances_accounts_ids[account.currency], account.balance,
-                                  account.currency)
-                self.write_transaction(account.currency, config.OPENING_BALANCE_DAY, None, None, True, split_src,
-                                       split_dst)
+                self.write_opening_transaction(account, account.balance, config.OPENING_BALANCE_DAY)
 
     def write_transaction(self, currency, day, description, num, reconciled, split_src, split_dst):
         tran = ET.SubElement(self.gnc_book_element, 'gnc:transaction', {'version': "2.0.0"})
