@@ -1,4 +1,5 @@
 import os.path
+import uuid
 from datetime import date
 import xml.etree.ElementTree as ET
 from datetime import datetime
@@ -41,7 +42,7 @@ def get_fx_rate(currency, day):
 
 def init_fx_rates():
     if len(fx_rates_map) != 0:
-        return      # already initialized
+        return  # already initialized
 
     # default fx rates
     for currency in sorted(CURRENCY_UNITS.keys()):
@@ -81,3 +82,7 @@ def concat(first, second, spacer=''):
         return result
     else:
         return second
+
+
+def next_id():
+    return uuid.uuid4().get_hex()

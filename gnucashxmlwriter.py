@@ -1,5 +1,4 @@
 import xml.etree.ElementTree as ET
-import uuid
 from fractions import Fraction
 
 import config
@@ -14,7 +13,7 @@ class Split:
 
 class GnuCashXmlWriter:
     def __init__(self):
-        self.root_account_id = self.next_id()
+        self.root_account_id = config.next_id()
         self.opening_balances_accounts_ids = {}
         self.trading_currency_account_ids = {}
         self.placeholder = {'placeholder': 'true'}
@@ -49,8 +48,8 @@ class GnuCashXmlWriter:
         self.write_account('Root Account', self.root_account_id, None, 'ROOT')
 
     def write_opening_balances(self):
-        equity_account_id = self.next_id()
-        opening_balances_account_id = self.next_id()
+        equity_account_id = config.next_id()
+        opening_balances_account_id = config.next_id()
 
         # create Equity and Equity:Opening Balances accounts
         self.write_account('Equity', equity_account_id, self.root_account_id, 'EQUITY', slots=self.placeholder)
@@ -60,14 +59,14 @@ class GnuCashXmlWriter:
         # create sub-accounts for each specified currency
         for currency in sorted(config.CURRENCY_UNITS.keys()):
             # generate and map the ID
-            account_id = self.next_id()
+            account_id = config.next_id()
             self.opening_balances_accounts_ids[currency] = account_id
 
             self.write_account(currency, account_id, opening_balances_account_id, 'EQUITY', None, currency)
 
     def write_trading_accounts(self):
-        trading_account_id = self.next_id()
-        trading_currency_account_id = self.next_id()
+        trading_account_id = config.next_id()
+        trading_currency_account_id = config.next_id()
 
         # create Trading and Trading:CURRENCY accounts
         self.write_account('Trading', trading_account_id, self.root_account_id, 'TRADING', slots=self.placeholder)
@@ -77,7 +76,7 @@ class GnuCashXmlWriter:
         # create sub-accounts for each specified currency
         for currency in sorted(config.CURRENCY_UNITS.keys()):
             # generate and map the ID
-            account_id = self.next_id()
+            account_id = config.next_id()
             self.trading_currency_account_ids[currency] = account_id
 
             self.write_account(currency, account_id, trading_currency_account_id, 'TRADING', None, currency)
@@ -142,7 +141,7 @@ class GnuCashXmlWriter:
     def write_transaction(self, currency, day, description, num, reconciled, split_src, split_dst):
         tran = ET.SubElement(self.gnc_book_element, 'gnc:transaction', {'version': "2.0.0"})
         tran_id = ET.SubElement(tran, 'trn:id', {'type': "guid"})
-        tran_id.text = self.next_id()
+        tran_id.text = config.next_id()
         self.add_currency_child(tran, currency, 'trn:currency')
         self.add_timestamp(tran, day, 'trn:date-posted')
         self.add_timestamp(tran, day, 'trn:date-entered')
@@ -185,7 +184,7 @@ class GnuCashXmlWriter:
             self.add_split(tran_splits, value_src_pos, value_dst_pos, trading_account_dst, reconciled)
 
     def write_ace_categories(self, categories):
-        expenses_account_id = self.next_id()
+        expenses_account_id = config.next_id()
         self.write_account('Expense', expenses_account_id, self.root_account_id, 'EXPENSE', slots=self.placeholder)
 
         # first pass: top-level categories
@@ -206,7 +205,7 @@ class GnuCashXmlWriter:
             fx_rate = config.fx_rates_map[key]
             price = ET.SubElement(pricedb, 'price')
             price_id = ET.SubElement(price, 'price:id', {'type': "guid"})
-            price_id.text = self.next_id()
+            price_id.text = config.next_id()
             self.add_currency_child(price, key[0], 'price:commodity')
             self.add_currency_child(price, config.DEFAULT_CURRENCY, 'price:currency')
             self.add_timestamp(price, key[1], 'price:time')
@@ -216,10 +215,6 @@ class GnuCashXmlWriter:
             price_type.text = 'unknown'
             price_value = ET.SubElement(price, 'price:value')
             price_value.text = str(Fraction(fx_rate).limit_denominator())
-
-    @staticmethod
-    def next_id():
-        return uuid.uuid4().get_hex()
 
     @staticmethod
     def write_currency_commodity(element, currency):

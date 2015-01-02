@@ -2,7 +2,6 @@ import xml.etree.ElementTree as ET
 import config
 import gnucashxmlwriter
 import gzip
-import uuid
 import argparse
 import sys
 from datetime import datetime
@@ -16,7 +15,7 @@ class AceAccountGroup:
     def __init__(self, ace_id, name):
         self.ace_id = ace_id
         self.name = name
-        self.gnu_id = uuid.uuid4().get_hex()
+        self.gnu_id = config.next_id()
 
 
 class AceAccount:
@@ -29,7 +28,7 @@ class AceAccount:
         self.number = number
         self.comment = comment
         self.hidden = hidden
-        self.gnu_id = uuid.uuid4().get_hex()
+        self.gnu_id = config.next_id()
 
 
 class AceCategory:
@@ -38,7 +37,7 @@ class AceCategory:
         self.parent = parent
         self.name = name
         self.currency = config.DEFAULT_CURRENCY
-        self.gnu_id = uuid.uuid4().get_hex()
+        self.gnu_id = config.next_id()
 
 
 account_groups = {}
@@ -173,7 +172,7 @@ def get_sorted_transactions():
     return [item[-1] for item in sorted_pairs]
 
 
-def save_zip(output_filename, output_gz_filename):
+def create_zip(output_filename, output_gz_filename):
     f_in = open(output_filename, 'rb')
     f_out = gzip.open(output_gz_filename, 'wb')
     print 'Open for writing', output_gz_filename
@@ -198,6 +197,7 @@ writer.write_ace_accounts(accounts.values())
 for tran in transactions:
     export_transaction(writer, tran)
 writer.save(args.output_filename)
-save_zip(args.output_filename, args.output_filename + '.gz')
+
+create_zip(args.output_filename, args.output_filename + '.gz')
 
 print 'Done'
