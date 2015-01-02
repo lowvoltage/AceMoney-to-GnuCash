@@ -1,6 +1,6 @@
 import xml.etree.ElementTree as ET
 import config
-import xmloutput
+import gnucashxmlwriter
 import gzip
 import uuid
 import argparse
@@ -128,7 +128,7 @@ def get_payee_name(tran):
     return tran_payee
 
 
-def export_transaction(xml_root, tran):
+def export_transaction(writer, tran):
     global processed_count
     if processed_count % 100 == 0:
         sys.stdout.write('.')
@@ -160,29 +160,9 @@ def export_transaction(xml_root, tran):
 
     description = config.concat(get_payee_name(tran), tran.get('Comment'), ': ')
 
-    xmloutput.write_transaction(xml_root, account_src.currency, tran_day, description, tran_id, reconciled,
-                                xmloutput.GnuSplit(account_src.gnu_id, amount_src, account_src.currency),
-                                xmloutput.GnuSplit(account_dst.gnu_id, amount_dst, account_dst.currency))
-
-
-def parse_and_get_ns(file):
-    """ http://stackoverflow.com/questions/1953761/accessing-xmlns-attribute-with-python-elementree """
-    events = "start", "start-ns"
-    root = None
-    ns = {}
-    for event, elem in ET.iterparse(file, events):
-        if event == "start-ns":
-            if elem[0] in ns and ns[elem[0]] != elem[1]:
-                # NOTE: It is perfectly valid to have the same prefix refer
-                #     to different URI namespaces in different parts of the
-                #     document. This exception serves as a reminder that this
-                #     solution is not robust.    Use at your own peril.
-                raise KeyError("Duplicate prefix with different URI found.")
-            ns[elem[0]] = "{%s}" % elem[1]
-        elif event == "start":
-            if root is None:
-                root = elem
-    return ET.ElementTree(root), ns
+    writer.write_transaction(account_src.currency, tran_day, description, tran_id, reconciled,
+                             gnucashxmlwriter.Split(account_src.gnu_id, amount_src, account_src.currency),
+                             gnucashxmlwriter.Split(account_dst.gnu_id, amount_dst, account_dst.currency))
 
 
 def get_sorted_transactions():
@@ -193,39 +173,31 @@ def get_sorted_transactions():
     return [item[-1] for item in sorted_pairs]
 
 
+def save_zip(output_filename, output_gz_filename):
+    f_in = open(output_filename, 'rb')
+    f_out = gzip.open(output_gz_filename, 'wb')
+    print 'Open for writing', output_gz_filename
+    f_out.writelines(f_in)
+    f_out.close()
+    f_in.close()
+
+
 transactions = get_sorted_transactions()
 print 'Found', len(transactions), 'transactions'
 
-xml_tree, ns = parse_and_get_ns('skeleton.gnucash')
-
-# invert the ns map. strip curly brackets
-ns_inverted = {v[1:-1]: k for k, v in ns.items()}
-ET._namespace_map.update(ns_inverted)
-
-xml_root = xml_tree.getroot()
-gnc_book_element = xml_root.find(ns['gnc'] + 'book')
-
-xmloutput.write_commodities(gnc_book_element)
-xmloutput.write_fx_rates(gnc_book_element)
-xmloutput.write_root_account(gnc_book_element)
-xmloutput.write_opening_balances(gnc_book_element)
-xmloutput.write_trading_accounts(gnc_book_element)
-xmloutput.write_ace_categories(gnc_book_element, categories.values())
-xmloutput.write_ace_accounts(gnc_book_element, account_groups.values(), accounts.values())
+writer = gnucashxmlwriter.GnuCashXmlWriter()
+writer.load_skeleton('skeleton.gnucash')
+writer.write_commodities()
+writer.write_fx_rates()
+writer.write_root_account()
+writer.write_opening_balances()
+writer.write_trading_accounts()
+writer.write_ace_categories(categories.values())
+writer.write_ace_account_groups(account_groups.values())
+writer.write_ace_accounts(accounts.values())
 for tran in transactions:
-    export_transaction(gnc_book_element, tran)
-
-print
-print 'Open for writing', args.output_filename
-config.indent(xml_root)
-xml_tree.write(args.output_filename, 'utf-8', True)
-
-output_gz_filename = args.output_filename + '.gz'
-f_in = open(args.output_filename, 'rb')
-f_out = gzip.open(output_gz_filename, 'wb')
-print 'Open for writing', output_gz_filename
-f_out.writelines(f_in)
-f_out.close()
-f_in.close()
+    export_transaction(writer, tran)
+writer.save(args.output_filename)
+save_zip(args.output_filename, args.output_filename + '.gz')
 
 print 'Done'
