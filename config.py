@@ -8,6 +8,7 @@ from datetime import datetime
 DEFAULT_CURRENCY = 'BGN'
 CURRENCY_UNITS = {'BGN': '100', 'USD': '100', 'EUR': '100', 'JPY': '1'}
 ACE_CURRENCY_CODES = {'155': 'BGN', '43': 'EUR', '63': 'JPY', '140': 'USD'}
+ACE_INCOME_CATEGORY_IDS = ('10', '51')
 OPENING_BALANCE_DAY = date(2000, 1, 1)
 FX_RATES_FILENAME = 'fxrates.xml'
 DEBUG = False

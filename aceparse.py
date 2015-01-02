@@ -28,11 +28,12 @@ class AceAccount:
 
 
 class AceCategory:
-    def __init__(self, ace_id, parent, name):
+    def __init__(self, ace_id, parent, name, account_type='EXPENSE'):
         self.ace_id = ace_id
         self.parent = parent
         self.name = name
         self.currency = config.DEFAULT_CURRENCY
+        self.account_type = account_type
         self.gnu_id = config.next_id()
 
 
@@ -100,7 +101,8 @@ class AceMoneyToGnuCash:
             category_name = category.get('Name')
             if ':' not in category_name:
                 print(u"TopCategory ID={0} '{1}'".format(category_id, category_name))
-                ace_category = AceCategory(category_id, None, category_name)
+                account_type = 'INCOME' if category_id in config.ACE_INCOME_CATEGORY_IDS else 'EXPENSE'
+                ace_category = AceCategory(category_id, None, category_name, account_type)
                 self.categories[category_id] = ace_category
                 categories_by_name[category_name] = ace_category
 
@@ -113,9 +115,8 @@ class AceMoneyToGnuCash:
                 print(u"Category ID={0} '{1}'".format(category_id, category_name))
                 parent = categories_by_name[split[0]]
                 category_name = split[1]
-
-                ace_category = AceCategory(category_id, parent, category_name)
-                self.categories[category_id] = ace_category
+                account_type = 'INCOME' if category_id in config.ACE_INCOME_CATEGORY_IDS else parent.account_type
+                self.categories[category_id] = AceCategory(category_id, parent, category_name, account_type)
 
         default_category = AceCategory(-1, None, 'Unassigned')
         self.categories[-1] = default_category

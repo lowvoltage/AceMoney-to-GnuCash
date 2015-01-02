@@ -187,15 +187,19 @@ class GnuCashXmlWriter:
         expenses_account_id = config.next_id()
         self.write_account('Expense', expenses_account_id, self.root_account_id, 'EXPENSE', slots=self.placeholder)
 
+        income_account_id = config.next_id()
+        self.write_account('Income', income_account_id, self.root_account_id, 'INCOME', slots=self.placeholder)
+
         # first pass: top-level categories
         for category in categories:
             if category.parent is None:
-                self.write_account(category.name, category.gnu_id, expenses_account_id, 'EXPENSE')
+                parent_account_id = expenses_account_id if category.account_type == 'EXPENSE' else income_account_id
+                self.write_account(category.name, category.gnu_id, parent_account_id, category.account_type)
 
         # second pass: lower-level categories
         for category in categories:
             if category.parent is not None:
-                self.write_account(category.name, category.gnu_id, category.parent.gnu_id, 'EXPENSE')
+                self.write_account(category.name, category.gnu_id, category.parent.gnu_id, category.account_type)
 
     def write_fx_rates(self):
         config.init_fx_rates()
