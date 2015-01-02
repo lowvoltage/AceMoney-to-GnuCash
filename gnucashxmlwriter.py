@@ -1,14 +1,11 @@
 import xml.etree.ElementTree as ET
 from fractions import Fraction
+from collections import namedtuple
 
 import config
 
 
-class Split:
-    def __init__(self, account_id, amount, currency):
-        self.account_id = account_id
-        self.amount = amount
-        self.currency = currency
+Split = namedtuple("Split", "account_id, amount, currency")
 
 
 class GnuCashXmlWriter:

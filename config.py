@@ -1,8 +1,7 @@
 import os.path
 import uuid
-from datetime import date
+from datetime import date, datetime
 import xml.etree.ElementTree as ET
-from datetime import datetime
 
 # define default currency and all involved currencies, with their sub-units
 DEFAULT_CURRENCY = 'BGN'
@@ -17,8 +16,8 @@ DEBUG = False
 fx_rates_map = {}  # key is (currency, day); value is fx-rate, a float
 
 
-# BGN-specific
 def get_default_fx_rate(currency):
+    """ Returns the default fx-rate for the given currency, expressed in DEFAULT_CURRENCY. BGN-specific values"""
     if currency == DEFAULT_CURRENCY:
         return 1.0
     if currency == 'EUR':
@@ -31,6 +30,7 @@ def get_default_fx_rate(currency):
 
 
 def get_fx_rate(currency, day):
+    """ Looks up a cached fx-rate for start-of-month. Returns a default fx-rate is not found """
     if currency == DEFAULT_CURRENCY:
         return 1.0
 
@@ -44,6 +44,7 @@ def get_fx_rate(currency, day):
 
 
 def init_fx_rates():
+    """ Populates the fx-rates cache with default values and with values from fxrates.xml"""
     if len(fx_rates_map) != 0:
         return  # already initialized
 

@@ -7,14 +7,18 @@ import sys
 from datetime import datetime
 
 
-class AceAccountGroup:
+class AccountGroup:
+    """ Encapsulates the properties of an AceMoney AccountGroup """
+
     def __init__(self, ace_id, name):
         self.ace_id = ace_id
         self.name = name
         self.gnu_id = config.next_id()
 
 
-class AceAccount:
+class Account:
+    """ Encapsulates the properties of an AceMoney Account. Each Account belongs to an AccountGroup """
+
     def __init__(self, ace_id, group, name, currency, balance, number, comment, hidden):
         self.ace_id = ace_id
         self.group = group
@@ -27,7 +31,9 @@ class AceAccount:
         self.gnu_id = config.next_id()
 
 
-class AceCategory:
+class Category:
+    """ Encapsulates the properties of an AceMoney Category. Categories form a two-level hierarchy """
+
     def __init__(self, ace_id, parent, name, account_type='EXPENSE'):
         self.ace_id = ace_id
         self.parent = parent
@@ -38,6 +44,8 @@ class AceCategory:
 
 
 class AceMoneyToGnuCash:
+    """ The main converter class. Loads an AceMoney .xml and generates a .gnucash document """
+
     def __init__(self):
         self.account_groups = {}
         self.accounts = {}
@@ -47,6 +55,7 @@ class AceMoneyToGnuCash:
         self.processed_transactions_count = 0
 
     def load(self, input_filename):
+        """ Loads an AceMoney .xml, reads payees, account groups, accounts and categories """
         self.input_tree = ET.parse(input_filename)
         print 'Loaded', input_filename
         print
@@ -71,7 +80,7 @@ class AceMoneyToGnuCash:
         for group in account_group_elements:
             group_id = group.find('AccountGroupID').get('ID')
             group_name = group.get('Name')
-            self.account_groups[group_id] = AceAccountGroup(group_id, group_name)
+            self.account_groups[group_id] = AccountGroup(group_id, group_name)
             print(u"Group ID={0} '{1}'".format(group_id, group_name))
         print
 
@@ -85,9 +94,9 @@ class AceMoneyToGnuCash:
             account_name = account.get('Name')
             account_balance = account.get('InitialBalance')
 
-            self.accounts[account_id] = AceAccount(account_id, group, account_name, currency_code,
-                                                   account_balance, account.get('Number'), account.get('Comment'),
-                                                   account.get('IsClosed') == 'TRUE')
+            self.accounts[account_id] = Account(account_id, group, account_name, currency_code,
+                                                account_balance, account.get('Number'), account.get('Comment'),
+                                                account.get('IsClosed') == 'TRUE')
             print(u"Account ID={0} '{1} / {2}'".format(account_id, group.name, account_name))
         print
 
@@ -102,7 +111,7 @@ class AceMoneyToGnuCash:
             if ':' not in category_name:
                 print(u"TopCategory ID={0} '{1}'".format(category_id, category_name))
                 account_type = 'INCOME' if category_id in config.ACE_INCOME_CATEGORY_IDS else 'EXPENSE'
-                ace_category = AceCategory(category_id, None, category_name, account_type)
+                ace_category = Category(category_id, None, category_name, account_type)
                 self.categories[category_id] = ace_category
                 categories_by_name[category_name] = ace_category
 
@@ -116,9 +125,9 @@ class AceMoneyToGnuCash:
                 parent = categories_by_name[split[0]]
                 category_name = split[1]
                 account_type = 'INCOME' if category_id in config.ACE_INCOME_CATEGORY_IDS else parent.account_type
-                self.categories[category_id] = AceCategory(category_id, parent, category_name, account_type)
+                self.categories[category_id] = Category(category_id, parent, category_name, account_type)
 
-        default_category = AceCategory(-1, None, 'Unassigned')
+        default_category = Category(-1, None, 'Unassigned')
         self.categories[-1] = default_category
         print
 
@@ -130,6 +139,7 @@ class AceMoneyToGnuCash:
         return tran_payee
 
     def write(self, output_filename):
+        """ Loads and processes all transactions. Generates the output file """
         transactions = self.get_sorted_transactions()
         print 'Found', len(transactions), 'transactions'
 
