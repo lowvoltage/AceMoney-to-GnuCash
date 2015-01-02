@@ -6,10 +6,6 @@ import argparse
 import sys
 from datetime import datetime
 
-# TODO: General code style; Docs
-ace_currency_codes = {'155': 'BGN', '43': 'EUR', '63': 'JPY', '140': 'USD'}
-processed_count = 0
-
 
 class AceAccountGroup:
     def __init__(self, ace_id, name):
@@ -40,136 +36,156 @@ class AceCategory:
         self.gnu_id = config.next_id()
 
 
-account_groups = {}
-accounts = {}
-categories = {}
-categories_by_name = {}
-payees = {}
+class AceMoneyToGnuCash:
+    def __init__(self):
+        self.account_groups = {}
+        self.accounts = {}
+        self.categories = {}
+        self.payees = {}
+        self.input_tree = None
+        self.processed_transactions_count = 0
 
-arg_parser = argparse.ArgumentParser(description="AceMoney to GnuCash converter")
-arg_parser.add_argument("-i", dest="input_filename", required=True, help="input .xml filename, exported from AceMoney",
-                        metavar="FILE")
-arg_parser.add_argument("-o", dest="output_filename", required=True, help="output .gnucash filename", metavar="FILE")
-args = arg_parser.parse_args()
+    def load(self, input_filename):
+        self.input_tree = ET.parse(input_filename)
+        print 'Loaded', input_filename
+        print
+        self.load_payees()
+        self.load_account_groups()
+        self.load_accounts()
+        self.load_categories()
 
-tree = ET.parse(args.input_filename)
-print 'Loaded', args.input_filename
-print
+    def load_payees(self):
+        payee_elements = self.input_tree.findall('.//Payee')
+        print 'Found', len(payee_elements), 'payees:'
+        for payee in payee_elements:
+            payee_id = payee.find('PayeeID').get('ID')
+            payee_name = payee.get('Name')
+            self.payees[payee_id] = payee_name
+            print(u"Payee ID={0} '{1}'".format(payee_id, payee_name))
+        print
 
-payee_elements = tree.findall('.//Payee')
-print 'Found', len(payee_elements), 'payees:'
-for payee in payee_elements:
-    payee_id = payee.find('PayeeID').get('ID')
-    payee_name = payee.get('Name')
-    payees[payee_id] = payee_name
-    print(u"Payee ID={0} '{1}'".format(payee_id, payee_name))
-print
+    def load_account_groups(self):
+        account_group_elements = self.input_tree.findall('.//AccountGroup')
+        print 'Found', len(account_group_elements), 'account groups:'
+        for group in account_group_elements:
+            group_id = group.find('AccountGroupID').get('ID')
+            group_name = group.get('Name')
+            self.account_groups[group_id] = AceAccountGroup(group_id, group_name)
+            print(u"Group ID={0} '{1}'".format(group_id, group_name))
+        print
 
-account_group_elements = tree.findall('.//AccountGroup')
-print 'Found', len(account_group_elements), 'account groups:'
-for group in account_group_elements:
-    group_id = group.find('AccountGroupID').get('ID')
-    group_name = group.get('Name')
-    account_groups[group_id] = AceAccountGroup(group_id, group_name)
-    print(u"Group ID={0} '{1}'".format(group_id, group_name))
-print
+    def load_accounts(self):
+        account_elements = self.input_tree.findall('.//Account')
+        print 'Found', len(account_elements), 'accounts:'
+        for account in account_elements:
+            currency_code = config.ACE_CURRENCY_CODES[account.find('CurrencyID').get('ID')]
+            group = self.account_groups[account.find('AccountGroupID').get('ID')]
+            account_id = account.find('AccountID').get('ID')
+            account_name = account.get('Name')
+            account_balance = account.get('InitialBalance')
 
-account_elements = tree.findall('.//Account')
-print 'Found', len(account_elements), 'accounts:'
-for account in account_elements:
-    currency_code = ace_currency_codes[account.find('CurrencyID').get('ID')]
-    group = account_groups[account.find('AccountGroupID').get('ID')]
-    account_id = account.find('AccountID').get('ID')
-    account_name = account.get('Name')
-    account_balance = account.get('InitialBalance')
+            self.accounts[account_id] = AceAccount(account_id, group, account_name, currency_code,
+                                                   account_balance, account.get('Number'), account.get('Comment'),
+                                                   account.get('IsClosed') == 'TRUE')
+            print(u"Account ID={0} '{1} / {2}'".format(account_id, group.name, account_name))
+        print
 
-    print(u"Account ID={0} '{1} / {2}'".format(account_id, group.name, account_name))
+    def load_categories(self):
+        categories_by_name = {}
 
-    accounts[account_id] = AceAccount(account_id, group, account_name, currency_code,
-                                      account_balance, account.get('Number'), account.get('Comment'),
-                                      account.get('IsClosed') == 'TRUE')
-print
+        category_elements = self.input_tree.findall('.//Category')
+        print 'Found', len(category_elements), 'categories:'
+        for category in category_elements:
+            category_id = category.find('CategoryID').get('ID')
+            category_name = category.get('Name')
+            if ':' not in category_name:
+                print(u"TopCategory ID={0} '{1}'".format(category_id, category_name))
+                ace_category = AceCategory(category_id, None, category_name)
+                self.categories[category_id] = ace_category
+                categories_by_name[category_name] = ace_category
 
-category_elements = tree.findall('.//Category')
-print 'Found', len(category_elements), 'categories:'
-for category in category_elements:
-    category_id = category.find('CategoryID').get('ID')
-    category_name = category.get('Name')
-    if ':' not in category_name:
-        print(u"TopCategory ID={0} '{1}'".format(category_id, category_name))
-        ace_category = AceCategory(category_id, None, category_name)
-        categories[category_id] = ace_category
-        categories_by_name[category_name] = ace_category
+        for category in category_elements:
+            category_id = category.find('CategoryID').get('ID')
+            category_name = category.get('Name')
 
-for category in category_elements:
-    category_id = category.find('CategoryID').get('ID')
-    category_name = category.get('Name')
+            split = category_name.split(':')
+            if len(split) == 2:
+                print(u"Category ID={0} '{1}'".format(category_id, category_name))
+                parent = categories_by_name[split[0]]
+                category_name = split[1]
 
-    split = category_name.split(':')
-    if len(split) == 2:
-        print(u"Category ID={0} '{1}'".format(category_id, category_name))
-        parent = categories_by_name[split[0]]
-        category_name = split[1]
+                ace_category = AceCategory(category_id, parent, category_name)
+                self.categories[category_id] = ace_category
 
-        ace_category = AceCategory(category_id, parent, category_name)
-        categories[category_id] = ace_category
+        default_category = AceCategory(-1, None, 'Unassigned')
+        self.categories[-1] = default_category
+        print
 
-default_category = AceCategory(-1, None, 'Unassigned')
-categories[-1] = default_category
-print
+    def get_payee_name(self, transaction):
+        payee_elem = transaction.find('PayeeID')
+        tran_payee = None
+        if payee_elem is not None:
+            tran_payee = self.payees[payee_elem.get('ID')]
+        return tran_payee
 
+    def write(self, output_filename):
+        transactions = self.get_sorted_transactions()
+        print 'Found', len(transactions), 'transactions'
 
-def get_payee_name(tran):
-    payee_elem = tran.find('PayeeID')
-    tran_payee = None
-    if payee_elem is not None:
-        tran_payee = payees[payee_elem.get('ID')]
-    return tran_payee
+        writer = gnucashxmlwriter.GnuCashXmlWriter()
+        writer.load_skeleton('skeleton.gnucash')
+        writer.write_commodities()
+        writer.write_fx_rates()
+        writer.write_root_account()
+        writer.write_opening_balances()
+        writer.write_trading_accounts()
+        writer.write_ace_categories(self.categories.values())
+        writer.write_ace_account_groups(self.account_groups.values())
+        writer.write_ace_accounts(self.accounts.values())
+        for tran in transactions:
+            self.export_transaction(writer, tran)
+        writer.save(output_filename)
 
+    def get_sorted_transactions(self):
+        sorted_pairs = []
+        for tran in self.input_tree.findall('.//Transaction'):
+            sorted_pairs.append((tran.get('Date'), tran))
+        sorted_pairs.sort()
+        return [item[-1] for item in sorted_pairs]
 
-def export_transaction(writer, tran):
-    global processed_count
-    if processed_count % 100 == 0:
-        sys.stdout.write('.')
-    processed_count += 1
+    def export_transaction(self, writer, tran):
+        if self.processed_transactions_count % 100 == 0:
+            sys.stdout.write('.')
+        self.processed_transactions_count += 1
 
-    tran_day = tran.get('Date')
-    tran_id = tran.find('TransactionID').get('ID')
+        tran_day = tran.get('Date')
+        tran_id = tran.find('TransactionID').get('ID')
 
-    if tran.find('CategoryID') is None:
-        tran_cat_id = -1
-    else:
-        tran_cat_id = tran.find('CategoryID').get('ID')
+        if tran.find('CategoryID') is None:
+            tran_cat_id = -1
+        else:
+            tran_cat_id = tran.find('CategoryID').get('ID')
 
-    tran_accounts = tran.findall('AccountID')
-    if len(tran_accounts) == 2:
-        account_src = accounts[tran_accounts[1].get('ID')]
-        account_dst = accounts[tran_accounts[0].get('ID')]
-        amount_src = tran.get('TransferAmount')
-        amount_dst = tran.get('Amount')
-    else:
-        account_src = accounts[tran_accounts[0].get('ID')]
-        account_dst = categories[tran_cat_id]
-        amount_src = tran.get('Amount')
-        day = datetime.strptime(tran_day, '%Y-%m-%d').date()
-        amount_dst = str(float(amount_src) * config.get_fx_rate(account_src.currency, day))
+        tran_accounts = tran.findall('AccountID')
+        if len(tran_accounts) == 2:
+            account_src = self.accounts[tran_accounts[1].get('ID')]
+            account_dst = self.accounts[tran_accounts[0].get('ID')]
+            amount_src = tran.get('TransferAmount')
+            amount_dst = tran.get('Amount')
+        else:
+            account_src = self.accounts[tran_accounts[0].get('ID')]
+            account_dst = self.categories[tran_cat_id]
+            amount_src = tran.get('Amount')
+            day = datetime.strptime(tran_day, '%Y-%m-%d').date()
+            amount_dst = str(float(amount_src) * config.get_fx_rate(account_src.currency, day))
 
-    # Note: Limitations - 'cleared' state is ignored; The flag for the second transaction leg (if present) is ignored
-    reconciled = tran.find('TransactionState').get('State') == '1'
+        # Limitations - 'cleared' state is ignored; The flag for the second transaction leg (if present) is ignored
+        reconciled = tran.find('TransactionState').get('State') == '1'
+        description = config.concat(self.get_payee_name(tran), tran.get('Comment'), ': ')
 
-    description = config.concat(get_payee_name(tran), tran.get('Comment'), ': ')
-
-    writer.write_transaction(account_src.currency, tran_day, description, tran_id, reconciled,
-                             gnucashxmlwriter.Split(account_src.gnu_id, amount_src, account_src.currency),
-                             gnucashxmlwriter.Split(account_dst.gnu_id, amount_dst, account_dst.currency))
-
-
-def get_sorted_transactions():
-    sorted_pairs = []
-    for tran in tree.findall('.//Transaction'):
-        sorted_pairs.append((tran.get('Date'), tran))
-    sorted_pairs.sort()
-    return [item[-1] for item in sorted_pairs]
+        writer.write_transaction(account_src.currency, tran_day, description, tran_id, reconciled,
+                                 gnucashxmlwriter.Split(account_src.gnu_id, amount_src, account_src.currency),
+                                 gnucashxmlwriter.Split(account_dst.gnu_id, amount_dst, account_dst.currency))
 
 
 def create_zip(output_filename, output_gz_filename):
@@ -181,23 +197,17 @@ def create_zip(output_filename, output_gz_filename):
     f_in.close()
 
 
-transactions = get_sorted_transactions()
-print 'Found', len(transactions), 'transactions'
+if __name__ == "__main__":
+    arg_parser = argparse.ArgumentParser(description="AceMoney to GnuCash converter")
+    arg_parser.add_argument("-i", dest="input_filename", required=True,
+                            help="input .xml filename, exported from AceMoney", metavar="FILE")
+    arg_parser.add_argument("-o", dest="output_filename", required=True, help="output .gnucash filename",
+                            metavar="FILE")
+    args = arg_parser.parse_args()
 
-writer = gnucashxmlwriter.GnuCashXmlWriter()
-writer.load_skeleton('skeleton.gnucash')
-writer.write_commodities()
-writer.write_fx_rates()
-writer.write_root_account()
-writer.write_opening_balances()
-writer.write_trading_accounts()
-writer.write_ace_categories(categories.values())
-writer.write_ace_account_groups(account_groups.values())
-writer.write_ace_accounts(accounts.values())
-for tran in transactions:
-    export_transaction(writer, tran)
-writer.save(args.output_filename)
+    converter = AceMoneyToGnuCash()
+    converter.load(args.input_filename)
+    converter.write(args.output_filename)
 
-create_zip(args.output_filename, args.output_filename + '.gz')
-
-print 'Done'
+    create_zip(args.output_filename, args.output_filename + '.gz')
+    print 'Done'

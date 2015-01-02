@@ -134,7 +134,7 @@ class GnuCashXmlWriter:
             if account.balance != '0':
                 split_src = Split(account.gnu_id, account.balance, account.currency)
                 split_dst = Split(self.opening_balances_accounts_ids[account.currency], account.balance,
-                                     account.currency)
+                                  account.currency)
                 self.write_transaction(account.currency, config.OPENING_BALANCE_DAY, None, None, True, split_src,
                                        split_dst)
 
@@ -200,10 +200,10 @@ class GnuCashXmlWriter:
     def write_fx_rates(self):
         config.init_fx_rates()
 
-        pricedb = ET.SubElement(self.gnc_book_element, 'gnc:pricedb', {'version': "1"})
+        price_db = ET.SubElement(self.gnc_book_element, 'gnc:pricedb', {'version': "1"})
         for key in sorted(config.fx_rates_map.keys()):
             fx_rate = config.fx_rates_map[key]
-            price = ET.SubElement(pricedb, 'price')
+            price = ET.SubElement(price_db, 'price')
             price_id = ET.SubElement(price, 'price:id', {'type': "guid"})
             price_id.text = config.next_id()
             self.add_currency_child(price, key[0], 'price:commodity')
@@ -239,7 +239,7 @@ class GnuCashXmlWriter:
         split = ET.SubElement(splits, 'trn:split')
 
         split_id = ET.SubElement(split, 'split:id', {'type': "guid"})
-        split_id.text = splits.next_id()
+        split_id.text = config.next_id()
         split_rec = ET.SubElement(split, 'split:reconciled-state')
         split_rec.text = 'y' if reconciled else 'n'
         split_value = ET.SubElement(split, 'split:value')

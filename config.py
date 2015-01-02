@@ -7,6 +7,7 @@ from datetime import datetime
 # define default currency and all involved currencies, with their sub-units
 DEFAULT_CURRENCY = 'BGN'
 CURRENCY_UNITS = {'BGN': '100', 'USD': '100', 'EUR': '100', 'JPY': '1'}
+ACE_CURRENCY_CODES = {'155': 'BGN', '43': 'EUR', '63': 'JPY', '140': 'USD'}
 OPENING_BALANCE_DAY = date(2000, 1, 1)
 FX_RATES_FILENAME = 'fxrates.xml'
 DEBUG = False
@@ -33,7 +34,7 @@ def get_fx_rate(currency, day):
 
     # check for a cached SOM FX
     start_of_month = day.replace(day=1)
-    cached_fx = fx_rates_map[(currency, start_of_month)]
+    cached_fx = fx_rates_map.get((currency, start_of_month))
     if cached_fx is not None:
         return cached_fx
 
